@@ -239,9 +239,12 @@ def store_search(jobs: list[dict]) -> None:
     with _LOCK, _connect() as connection:
         if ids:
             marks = ",".join("?" for _ in ids)
-            connection.execute(f"DELETE FROM jobs WHERE status = 'new' AND id NOT IN ({marks})", ids)
+            connection.execute(
+                f"DELETE FROM jobs WHERE status = 'new' AND source != 'LinkedIn' AND id NOT IN ({marks})",
+                ids,
+            )
         else:
-            connection.execute("DELETE FROM jobs WHERE status = 'new'")
+            connection.execute("DELETE FROM jobs WHERE status = 'new' AND source != 'LinkedIn'")
         for job in jobs:
             existing = connection.execute("SELECT * FROM jobs WHERE id = ?", (job["id"],)).fetchone()
             if existing is None:
@@ -278,6 +281,82 @@ def store_search(jobs: list[dict]) -> None:
                         job.get("location_note") or "",
                         int(job.get("score") or 0),
                         json.dumps(job.get("reasons") or []),
+                        now,
+                        job["id"],
+                    ),
+                )
+
+
+def upsert_imported(jobs: list[dict]) -> None:
+    """Insert pasted leads without dropping other rows.
+
+    Pasting the same link again refreshes the posting and keeps status and any CV.
+    """
+    init()
+    now = _now()
+    with _LOCK, _connect() as connection:
+        for job in jobs:
+            existing = connection.execute("SELECT id FROM jobs WHERE id = ?", (job["id"],)).fetchone()
+            posting_text = job.get("posting_text") or job.get("description") or ""
+            posting_label = job.get("posting_label") or ""
+            official_url = job.get("official_url") or job.get("company_url") or job.get("board_url") or ""
+            if existing is None:
+                connection.execute(
+                    """
+                    INSERT INTO jobs (
+                        id, source, title, company, location, salary, description, board_url,
+                        company_url, posted_at, is_remote, location_note, score, reasons, status,
+                        tailored_cv, cover_note, posting_text, posting_label, official_url, updated_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'new', '', '', ?, ?, ?, ?)
+                    """,
+                    (
+                        job["id"],
+                        job["source"],
+                        job["title"],
+                        job.get("company") or "",
+                        job.get("location") or "",
+                        job.get("salary") or "",
+                        job.get("description") or "",
+                        job.get("board_url") or "",
+                        job.get("company_url") or "",
+                        job.get("posted_at") or "",
+                        1 if job.get("is_remote") else 0,
+                        job.get("location_note") or "",
+                        int(job.get("score") or 0),
+                        json.dumps(job.get("reasons") or []),
+                        posting_text,
+                        posting_label,
+                        official_url,
+                        now,
+                    ),
+                )
+            else:
+                connection.execute(
+                    """
+                    UPDATE jobs SET
+                        source = ?, title = ?, company = ?, location = ?, salary = ?, description = ?,
+                        board_url = ?, company_url = ?, posted_at = ?, is_remote = ?, location_note = ?,
+                        score = ?, reasons = ?, posting_text = ?, posting_label = ?, official_url = ?,
+                        updated_at = ?
+                    WHERE id = ?
+                    """,
+                    (
+                        job["source"],
+                        job["title"],
+                        job.get("company") or "",
+                        job.get("location") or "",
+                        job.get("salary") or "",
+                        job.get("description") or "",
+                        job.get("board_url") or "",
+                        job.get("company_url") or "",
+                        job.get("posted_at") or "",
+                        1 if job.get("is_remote") else 0,
+                        job.get("location_note") or "",
+                        int(job.get("score") or 0),
+                        json.dumps(job.get("reasons") or []),
+                        posting_text,
+                        posting_label,
+                        official_url,
                         now,
                         job["id"],
                     ),

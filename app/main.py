@@ -14,6 +14,7 @@ from app.match import query_keywords, rank_jobs, search_block_reason
 from app.posting import _relevant, load_posting
 from app.resume import extract_pdf_text, parse_resume
 from app.sources import collect
+from app.sources.linkedin import extract_urls, fetch_jobs, looks_like_secret
 
 ROOT = Path(__file__).resolve().parent
 PAGE = ROOT / "static" / "index.html"
@@ -62,6 +63,10 @@ class DecideIn(BaseModel):
     status: str
     tailored_cv: str = ""
     cover_note: str = ""
+
+
+class LinkedInIn(BaseModel):
+    urls: str = Field(default="", max_length=8000)
 
 
 def _lead(job: dict) -> dict:
@@ -319,6 +324,27 @@ async def _posting_within(job: dict, seconds: float) -> dict | None:
         return await asyncio.wait_for(load_posting(job), timeout=seconds)
     except Exception:
         return None
+
+
+@app.post("/api/linkedin")
+async def import_linkedin(body: LinkedInIn):
+    pasted = body.urls or ""
+    if looks_like_secret(pasted):
+        raise HTTPException(
+            status_code=400,
+            detail="Paste LinkedIn job links only. This app does not take your LinkedIn password or session cookie.",
+        )
+    urls, warnings = extract_urls(pasted)
+    if not urls:
+        raise HTTPException(
+            status_code=400,
+            detail="Paste one or more LinkedIn job links. This app does not use your LinkedIn password.",
+        )
+    jobs, fetch_warnings = await fetch_jobs(urls)
+    warnings.extend(fetch_warnings)
+    if jobs:
+        db.upsert_imported(jobs)
+    return {"imported": len(jobs), "warnings": warnings, **_board()}
 
 
 @app.get("/api/jobs/{job_id}")

@@ -177,6 +177,18 @@
         </form>
       </section>
     </div>
+    <section class="card" style="margin-top: 18px;">
+      <h2>LinkedIn links</h2>
+      <p class="hint">Paste job links you copied from LinkedIn, including ones it suggested. This reads the public job page only. It does not ask for your LinkedIn password or session cookie. LinkedIn does not let other apps read those suggestions with a password. If a company apply page is public, Apply opens it. If the page is only Easy Apply or a login wall, the lead keeps the LinkedIn link and says the external portal was not public.</p>
+      <form id="linkedin-form" class="fields">
+        <label>Job links
+          <textarea id="linkedin-urls" placeholder="https://www.linkedin.com/jobs/view/…"></textarea>
+        </label>
+        <div class="row">
+          <button id="add-linkedin" type="submit">Add LinkedIn jobs</button>
+        </div>
+      </form>
+    </section>
     <section id="results">
       <div class="row" style="justify-content: space-between;">
         <h2>Leads</h2>
@@ -610,6 +622,29 @@
         fillForm(await api("/api/profile", { method: "PUT", body: JSON.stringify(readForm()) }));
       } catch (error) {
         showError(error);
+      }
+    });
+
+    $("linkedin-form").addEventListener("submit", async (event) => {
+      event.preventDefault();
+      clearError();
+      const urls = $("linkedin-urls").value.trim();
+      if (!urls) {
+        showError(new Error("Paste one or more LinkedIn job links."));
+        return;
+      }
+      $("add-linkedin").disabled = true;
+      try {
+        const data = await api("/api/linkedin", { method: "POST", body: JSON.stringify({ urls }) });
+        renderBoard(data);
+        const warnings = data.warnings || [];
+        const added = "Added " + data.imported + " LinkedIn " + (data.imported === 1 ? "job" : "jobs") + ".";
+        showBanner([added, ...warnings].filter(Boolean).join(" "), data.imported > 0);
+        if (data.imported) $("linkedin-urls").value = "";
+      } catch (error) {
+        showError(error);
+      } finally {
+        $("add-linkedin").disabled = false;
       }
     });
 
