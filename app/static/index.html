@@ -1,0 +1,711 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Job finder</title>
+  <style>
+    :root {
+      --paper: #f3efe4;
+      --ink: #1e1a16;
+      --muted: #5e564c;
+      --card: #fffdf8;
+      --line: #ddd4c4;
+      --green: #0e6b52;
+      --green-dark: #084737;
+      --clay: #8d3d2c;
+      --shadow: 0 12px 30px rgba(48, 36, 18, 0.08);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at top left, #efe4cc, transparent 36%),
+        var(--paper);
+      font: 16px/1.5 "Segoe UI", sans-serif;
+    }
+    header, main, #review { width: min(1120px, calc(100% - 32px)); margin: 0 auto; }
+    header { display: flex; justify-content: space-between; align-items: end; padding: 28px 0 8px; }
+    h1, h2 { font-family: Georgia, serif; font-weight: 600; letter-spacing: -0.03em; }
+    h1 { margin: 0; font-size: 40px; }
+    h2 { margin: 0 0 12px; font-size: 26px; }
+    .eyebrow { margin: 0; color: var(--green); font-size: 13px; letter-spacing: 0.14em; text-transform: uppercase; }
+    button, input, textarea, select { font: inherit; color: inherit; }
+    button {
+      border: 0;
+      border-radius: 999px;
+      padding: 10px 16px;
+      background: var(--green);
+      color: white;
+      cursor: pointer;
+    }
+    button.secondary { background: transparent; color: var(--ink); border: 1px solid var(--line); }
+    button.danger { background: var(--clay); }
+    button:disabled { opacity: 0.6; cursor: wait; }
+    textarea, input, select {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 10px 12px;
+      background: white;
+    }
+    input[type="file"] {
+      width: auto;
+      max-width: 100%;
+      border: 0;
+      padding: 0;
+      background: transparent;
+    }
+    textarea { min-height: 88px; resize: vertical; }
+    label { display: grid; gap: 6px; font-size: 14px; color: var(--muted); }
+    .top, .review-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      padding: 18px;
+      box-shadow: var(--shadow);
+    }
+    #messages, #leads, #applied, #skipped { display: grid; gap: 10px; }
+    #messages { min-height: 220px; max-height: 420px; overflow: auto; margin-bottom: 12px; }
+    .bubble { padding: 10px 12px; border-radius: 14px; white-space: pre-wrap; }
+    .bubble.user { background: #e7f3ee; }
+    .bubble.assistant { background: #f6f1e6; }
+    .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+    .fields { display: grid; gap: 12px; }
+    .hint { color: var(--muted); font-size: 13px; margin: 8px 0 0; }
+    #banner {
+      width: min(1120px, calc(100% - 32px));
+      margin: 12px auto;
+      padding: 12px 14px;
+      border-radius: 12px;
+      background: #f8e6e1;
+      color: var(--clay);
+    }
+    #banner.ok { background: #e7f3ee; color: var(--green-dark); }
+    #model-status {
+      margin: 0;
+      padding: 10px 12px;
+      border-radius: 12px;
+      font-weight: 650;
+    }
+    #model-status.pending { background: #f6f1e6; color: var(--ink); }
+    #model-status.ok { background: #e7f3ee; color: var(--green-dark); }
+    #model-status.bad { background: #f8e6e1; color: var(--clay); }
+    .lead, .quiet {
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 14px;
+      background: white;
+    }
+    .lead { cursor: pointer; }
+    .lead:hover { border-color: var(--green); }
+    .meta { color: var(--muted); font-size: 14px; }
+    .score { color: var(--green-dark); font-weight: 700; }
+    #review { padding-bottom: 48px; }
+    #review .role-kicker { margin: 18px 0 0; }
+    #cv { min-height: 460px; }
+    #note { min-height: 140px; }
+    #posting { min-height: 180px; }
+    details.posting-fold { margin-top: 16px; }
+    details.posting-fold summary { cursor: pointer; color: var(--muted); }
+    dialog { border: 0; border-radius: 18px; padding: 20px; width: min(480px, calc(100% - 24px)); }
+    dialog::backdrop { background: rgba(30, 26, 22, 0.4); }
+    #results { margin: 22px 0 48px; }
+    @media (max-width: 800px) {
+      .top, .review-grid { grid-template-columns: 1fr; }
+      h1 { font-size: 32px; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div>
+      <p class="eyebrow">Bangladesh and remote</p>
+      <h1>Job finder</h1>
+    </div>
+    <button id="settings-open" class="secondary" type="button">Settings</button>
+  </header>
+  <div id="banner" hidden></div>
+  <main id="home">
+    <div class="top">
+      <section class="card">
+        <h2>Tell it what you want</h2>
+        <p class="hint">Talk the way you would to a person. The form on the right updates from the conversation.</p>
+        <div id="messages"></div>
+        <form id="chat-form" class="fields">
+          <textarea id="chat-input" placeholder="I want junior Python work in Dhaka, and remote roles are fine. I know Django and Excel."></textarea>
+          <div class="row">
+            <button type="submit">Send</button>
+          </div>
+          <p id="chat-status" class="hint" hidden></p>
+        </form>
+      </section>
+      <section class="card">
+        <h2>Requirements</h2>
+        <form id="profile-form" class="fields">
+          <label>Resume
+            <textarea id="resume" placeholder="Paste your resume. Search uses it, so you do not have to type a job title."></textarea>
+          </label>
+          <div class="row">
+            <button id="use-resume" class="secondary" type="button">Use this resume</button>
+            <input id="resume-pdf" type="file" accept=".pdf,application/pdf" aria-label="PDF resume">
+            <button id="read-pdf" class="secondary" type="button">Read PDF</button>
+          </div>
+          <p class="hint">Read PDF fills the same fields. If the file is only a scanned image, paste the text instead.</p>
+          <p id="from-resume" class="hint" hidden></p>
+          <p class="hint">Search uses skills from the resume, so jobs in other fields can show up. Leave the title blank unless you want to boost one. Open a lead to check the resume edited for that job.</p>
+          <label>Name <input id="name" autocomplete="name"></label>
+          <label>Contact <input id="contact" placeholder="email or phone"></label>
+          <label>Job titles, optional <textarea id="titles" placeholder="Leave blank to search from the resume. Add a title only to boost that role."></textarea></label>
+          <label>Must-have skills, optional <textarea id="must" placeholder="Filled from your resume"></textarea></label>
+          <label>Nice-to-have skills, optional <textarea id="nice" placeholder="Optional"></textarea></label>
+          <label>City <input id="city" value="Dhaka"></label>
+          <label>Salary floor, BDT <input id="salary" inputmode="numeric" placeholder="Optional, not used to hide jobs"></label>
+          <label>Where
+            <select id="work-mode">
+              <option value="both">Remote and on-site in Bangladesh</option>
+              <option value="remote">Remote only</option>
+            </select>
+          </label>
+          <label>Skip companies or words <textarea id="exclude" placeholder="unpaid, a company name"></textarea></label>
+          <div class="row">
+            <button id="search" type="button">Search</button>
+            <button id="save-profile" class="secondary" type="button">Save requirements</button>
+          </div>
+        </form>
+      </section>
+    </div>
+    <section id="results">
+      <div class="row" style="justify-content: space-between;">
+        <h2>Leads</h2>
+        <p id="match-count" class="meta"></p>
+      </div>
+      <div id="warnings"></div>
+      <div id="leads"></div>
+      <h2 style="margin-top: 28px;">Applied</h2>
+      <div id="applied"></div>
+      <div class="row" style="margin-top: 18px;">
+        <button id="show-skipped" class="secondary" type="button">Show skipped</button>
+      </div>
+      <div id="skipped" hidden></div>
+    </section>
+  </main>
+  <section id="review" class="card" hidden>
+    <div class="row" style="justify-content: space-between;">
+      <button id="back" class="secondary" type="button">Back to leads</button>
+      <p id="review-label" class="meta"></p>
+    </div>
+    <p id="review-kicker" class="eyebrow role-kicker">Role being applied to</p>
+    <h2 id="review-title"></h2>
+    <p id="review-meta" class="meta"></p>
+    <p id="review-reasons"></p>
+    <div class="fields" style="margin-top: 8px;">
+      <label>Edited resume <textarea id="cv"></textarea></label>
+      <label>Cover note <textarea id="note"></textarea></label>
+    </div>
+    <div class="row" style="margin-top: 14px;">
+      <button id="apply" type="button">Apply</button>
+      <button id="skip" class="danger" type="button">Skip</button>
+      <button id="save-lead" class="secondary" type="button">Save</button>
+      <button id="rewrite" class="secondary" type="button">Rewrite summary</button>
+    </div>
+    <p class="hint">Check that this resume only uses your real experience. Apply saves it on this computer and opens the posting. You send the application yourself.</p>
+    <details class="posting-fold">
+      <summary>Posting text</summary>
+      <label>Posting <textarea id="posting" readonly></textarea></label>
+    </details>
+    <div class="row" style="margin-top: 12px;">
+      <a id="open-posting" href="#" target="_blank" rel="noopener">Open posting</a>
+      <a id="source-link" href="#" target="_blank" rel="noopener">View on source</a>
+    </div>
+  </section>
+  <dialog id="settings">
+    <form id="settings-form" class="fields">
+      <h2>Model</h2>
+      <p class="hint">Ollama: base URL http://127.0.0.1:11434/v1 and the model you pulled. A hosted model also needs an API key. It stays on this PC.</p>
+      <label>Base URL <input id="base-url" placeholder="http://127.0.0.1:11434/v1"></label>
+      <label>Model <input id="model" placeholder="llama3.2"></label>
+      <label>API key <input id="api-key" type="password" autocomplete="off"></label>
+      <label class="row"><input id="clear-key" type="checkbox" style="width: auto;"> Clear the saved key</label>
+      <p id="key-hint" class="hint"></p>
+      <div class="row">
+        <button type="submit">Save settings</button>
+        <button id="test-model" class="secondary" type="button">Check connection</button>
+        <button id="settings-close" class="secondary" type="button">Close</button>
+      </div>
+      <p id="model-status" role="status" hidden></p>
+    </form>
+  </dialog>
+  <script>
+    const $ = (id) => document.getElementById(id);
+    let current = null;
+
+    function showBanner(message, ok) {
+      const banner = $("banner");
+      banner.hidden = false;
+      banner.classList.toggle("ok", Boolean(ok));
+      banner.textContent = message;
+    }
+
+    function showError(error) {
+      const detail = error && error.message ? error.message : "Something went wrong.";
+      showBanner(typeof detail === "string" ? detail : "Something went wrong.", false);
+    }
+
+    function clearError() {
+      const banner = $("banner");
+      banner.hidden = true;
+      banner.classList.remove("ok");
+    }
+
+    function setModelStatus(message, tone) {
+      const line = $("model-status");
+      line.hidden = false;
+      line.classList.remove("pending", "ok", "bad");
+      if (tone) line.classList.add(tone);
+      line.textContent = message;
+    }
+
+    function errorText(error) {
+      const detail = error && error.message ? error.message : "Something went wrong.";
+      return typeof detail === "string" ? detail : "Something went wrong.";
+    }
+
+    async function testSavedModel() {
+      setModelStatus("Checking connection… " + MODEL_WAIT, "pending");
+      const result = await api("/api/settings/test", { method: "POST" });
+      const reply = (result.reply || "").trim();
+      const message = reply ? "Connected. Model replied: " + reply : "Connected. The model replied.";
+      setModelStatus(message, "ok");
+      showBanner(message, true);
+    }
+
+    const MODEL_WAIT = "The first reply can take a minute while the model loads.";
+
+    function setLine(id, text) {
+      const el = $(id);
+      if (!el) return;
+      el.hidden = !text;
+      el.textContent = text || "";
+    }
+
+    function showModelFailure(error, lineId) {
+      showError(error);
+      const detail = error && error.message ? error.message : "Something went wrong.";
+      setLine(lineId, typeof detail === "string" ? detail : "Something went wrong.");
+    }
+
+    async function api(path, options = {}) {
+      const headers = { ...(options.headers || {}) };
+      if (!(options.body instanceof FormData) && !headers["Content-Type"]) {
+        headers["Content-Type"] = "application/json";
+      }
+      const response = await fetch(path, {
+        ...options,
+        headers,
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        const detail = data.detail;
+        throw new Error(typeof detail === "string" ? detail : "Request failed.");
+      }
+      return data;
+    }
+
+    function lines(value) {
+      return (value || "").split(/[\n,]/).map((item) => item.trim()).filter(Boolean);
+    }
+
+    let savedResume = "";
+
+    function showInferred(profile) {
+      const line = $("from-resume");
+      const name = (profile.name || "").trim();
+      const skills = profile.must_have || [];
+      const titles = profile.titles || [];
+      const hasResume = Boolean((profile.resume_text || "").trim());
+      if (!hasResume && !name && !skills.length && !titles.length) {
+        line.hidden = true;
+        line.textContent = "";
+        return;
+      }
+      const bits = [];
+      if (name) bits.push(name);
+      else if (hasResume) bits.push("name was not found");
+      if (skills.length) bits.push("skills " + skills.join(", "));
+      else if (hasResume) bits.push("skills were not found");
+      if (titles.length) bits.push("past titles " + titles.join(", "));
+      else if (hasResume) bits.push("past titles were not found");
+      if (!bits.length) {
+        line.hidden = true;
+        line.textContent = "";
+        return;
+      }
+      line.hidden = false;
+      line.textContent = "From the resume: " + bits.join(" · ") + ". Search uses this. You can edit it. Add a title only to boost a role.";
+    }
+
+    function fillForm(profile) {
+      $("resume").value = profile.resume_text || "";
+      $("name").value = profile.name || "";
+      $("contact").value = profile.contact || "";
+      $("titles").value = (profile.titles || []).join("\n");
+      $("must").value = (profile.must_have || []).join("\n");
+      $("nice").value = (profile.nice_have || []).join("\n");
+      $("city").value = profile.city || "Dhaka";
+      $("salary").value = profile.salary_floor_bdt ?? "";
+      $("work-mode").value = profile.work_mode || "both";
+      $("exclude").value = (profile.exclude || []).join("\n");
+      savedResume = profile.resume_text || "";
+      showInferred(profile);
+    }
+
+    async function useResumeText() {
+      const text = $("resume").value;
+      if (!text.trim() || text === savedResume) return;
+      fillForm(await api("/api/resume", { method: "POST", body: JSON.stringify({ text }) }));
+    }
+
+    function readForm() {
+      return {
+        resume_text: $("resume").value,
+        name: $("name").value,
+        contact: $("contact").value,
+        titles: lines($("titles").value),
+        must_have: lines($("must").value),
+        nice_have: lines($("nice").value),
+        city: $("city").value,
+        salary_floor_bdt: $("salary").value,
+        work_mode: $("work-mode").value,
+        exclude: lines($("exclude").value),
+      };
+    }
+
+    function renderMessages(messages) {
+      const box = $("messages");
+      box.replaceChildren();
+      if (!messages.length) {
+        const empty = document.createElement("p");
+        empty.className = "hint";
+        empty.textContent = "No conversation yet.";
+        box.append(empty);
+        return;
+      }
+      for (const message of messages) {
+        const item = document.createElement("div");
+        item.className = "bubble " + (message.role === "user" ? "user" : "assistant");
+        item.textContent = message.content;
+        box.append(item);
+      }
+      box.scrollTop = box.scrollHeight;
+    }
+
+    function renderJob(job, open) {
+      const card = document.createElement("article");
+      card.className = "lead";
+      const title = document.createElement("strong");
+      title.textContent = job.title;
+      const meta = document.createElement("p");
+      meta.className = "meta";
+      meta.textContent = [job.company, job.location, job.salary, job.source].filter(Boolean).join(" · ");
+      const why = document.createElement("p");
+      why.textContent = (job.reasons || []).join(" · ");
+      const score = document.createElement("p");
+      score.className = "score";
+      score.textContent = "Match " + job.score;
+      card.append(title, meta, why, score);
+      card.setAttribute("role", "button");
+      card.tabIndex = 0;
+      const activate = () => open(job.id);
+      card.addEventListener("click", activate);
+      card.addEventListener("keydown", (event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          activate();
+        }
+      });
+      return card;
+    }
+
+    function renderList(element, jobs, emptyText) {
+      element.replaceChildren();
+      if (!jobs.length) {
+        const empty = document.createElement("p");
+        empty.className = "quiet";
+        empty.textContent = emptyText;
+        element.append(empty);
+        return;
+      }
+      for (const job of jobs) element.append(renderJob(job, openJob));
+    }
+
+    function renderBoard(data) {
+      renderList($("leads"), data.leads || [], "No leads yet. Paste a resume and search.");
+      renderList($("applied"), data.applied || [], "Jobs you mark Apply show up here.");
+      renderList($("skipped"), data.skipped || [], "No skipped leads.");
+      $("show-skipped").textContent = "Show skipped (" + (data.skipped_count || 0) + ")";
+      if (typeof data.matched === "number") {
+        $("match-count").textContent = data.matched + " matched this search";
+      }
+      const warnings = $("warnings");
+      warnings.replaceChildren();
+      for (const warning of data.warnings || []) {
+        const item = document.createElement("p");
+        item.className = "hint";
+        item.textContent = warning;
+        warnings.append(item);
+      }
+    }
+
+    function showHome() {
+      $("review").hidden = true;
+      $("home").hidden = false;
+      current = null;
+    }
+
+    async function openJob(id) {
+      clearError();
+      $("home").hidden = true;
+      $("review").hidden = false;
+      $("review-kicker").textContent = "Role being applied to";
+      $("review-title").textContent = "Preparing the edited resume";
+      $("review-meta").textContent = "";
+      $("review-reasons").textContent = "";
+      $("review-label").textContent = "";
+      $("cv").value = "Editing your resume for this job…";
+      $("note").value = "";
+      $("posting").value = "";
+      $("review").scrollIntoView({ block: "start" });
+      try {
+        const job = await api("/api/jobs/" + encodeURIComponent(id));
+        current = job;
+        $("review-title").textContent = job.title || "Role";
+        $("review-label").textContent = job.posting_label || job.source;
+        $("review-meta").textContent = [job.company, job.location, job.salary, job.source].filter(Boolean).join(" · ");
+        $("review-reasons").textContent = (job.reasons || []).join(" · ");
+        $("posting").value = job.posting_text || job.description || "";
+        $("cv").value = job.tailored_cv || "";
+        $("note").value = job.cover_note || "";
+        const official = job.official_url || job.company_url || job.board_url;
+        $("open-posting").href = official || "#";
+        $("source-link").href = job.board_url || official || "#";
+        $("source-link").textContent = "View on " + job.source;
+        $("review").scrollIntoView({ block: "start" });
+      } catch (error) {
+        showError(error);
+        showHome();
+      }
+    }
+
+    async function decide(status) {
+      if (!current) return;
+      const buttons = ["apply", "skip", "save-lead", "rewrite"].map($);
+      buttons.forEach((button) => { button.disabled = true; });
+      try {
+        const data = await api("/api/jobs/" + encodeURIComponent(current.id) + "/decide", {
+          method: "POST",
+          body: JSON.stringify({
+            status,
+            tailored_cv: $("cv").value,
+            cover_note: $("note").value,
+          }),
+        });
+        if (status === "applied") {
+          const url = current.official_url || current.company_url || current.board_url;
+          if (url) window.open(url, "_blank", "noopener");
+        }
+        renderBoard(data);
+        showHome();
+      } catch (error) {
+        showError(error);
+      } finally {
+        buttons.forEach((button) => { button.disabled = false; });
+      }
+    }
+
+    async function load() {
+      const data = await api("/api/state");
+      fillForm(data.profile);
+      renderMessages(data.messages || []);
+      renderBoard(data);
+      $("base-url").value = data.settings.base_url || "";
+      $("model").value = data.settings.model || "";
+      $("key-hint").textContent = data.settings.has_key ? "A key is saved (" + data.settings.key_hint + ")." : "No key saved.";
+    }
+
+    $("chat-form").addEventListener("submit", async (event) => {
+      event.preventDefault();
+      clearError();
+      const message = $("chat-input").value.trim();
+      if (!message) return;
+      const button = event.submitter || event.target.querySelector("button");
+      button.disabled = true;
+      setLine("chat-status", MODEL_WAIT);
+      try {
+        const data = await api("/api/chat", { method: "POST", body: JSON.stringify({ message }) });
+        $("chat-input").value = "";
+        fillForm(data.profile);
+        renderMessages(data.messages);
+        setLine("chat-status", "");
+      } catch (error) {
+        showModelFailure(error, "chat-status");
+      } finally {
+        button.disabled = false;
+      }
+    });
+
+    $("use-resume").addEventListener("click", async () => {
+      clearError();
+      try {
+        savedResume = "";
+        await useResumeText();
+      } catch (error) {
+        showError(error);
+      }
+    });
+
+    $("resume").addEventListener("paste", () => {
+      setTimeout(() => {
+        useResumeText().catch(showError);
+      }, 0);
+    });
+    $("resume").addEventListener("blur", () => {
+      useResumeText().catch(showError);
+    });
+    for (const id of ["name", "titles", "must", "nice"]) {
+      $(id).addEventListener("input", () => {
+        showInferred({
+          resume_text: $("resume").value,
+          name: $("name").value,
+          must_have: lines($("must").value),
+          titles: lines($("titles").value),
+        });
+      });
+    }
+
+    $("read-pdf").addEventListener("click", async () => {
+      clearError();
+      const chosen = $("resume-pdf").files && $("resume-pdf").files[0];
+      if (!chosen) {
+        showError(new Error("Choose a PDF resume first."));
+        return;
+      }
+      const body = new FormData();
+      body.append("file", chosen);
+      $("read-pdf").disabled = true;
+      try {
+        fillForm(await api("/api/resume/pdf", { method: "POST", body }));
+      } catch (error) {
+        showError(error);
+      } finally {
+        $("read-pdf").disabled = false;
+      }
+    });
+
+    $("save-profile").addEventListener("click", async () => {
+      clearError();
+      try {
+        fillForm(await api("/api/profile", { method: "PUT", body: JSON.stringify(readForm()) }));
+      } catch (error) {
+        showError(error);
+      }
+    });
+
+    $("search").addEventListener("click", async () => {
+      clearError();
+      $("search").disabled = true;
+      $("match-count").textContent = "Searching Bdjobs and remote boards…";
+      try {
+        const draft = readForm();
+        if (draft.resume_text.trim() && !draft.must_have.length && !draft.nice_have.length) {
+          fillForm(await api("/api/resume", { method: "POST", body: JSON.stringify({ text: draft.resume_text }) }));
+        }
+        const data = await api("/api/search", { method: "POST", body: JSON.stringify(readForm()) });
+        fillForm(data.profile);
+        renderBoard(data);
+        const warnings = data.warnings || [];
+        if (!data.matched) {
+          showBanner(warnings.join(" ") || "No jobs matched the skills or past titles on your resume.", false);
+        } else if (warnings.length >= 5) {
+          showBanner(warnings.join(" "), false);
+        }
+      } catch (error) {
+        showError(error);
+        $("match-count").textContent = "";
+      } finally {
+        $("search").disabled = false;
+      }
+    });
+
+    $("show-skipped").addEventListener("click", () => {
+      $("skipped").hidden = !$("skipped").hidden;
+    });
+    $("back").addEventListener("click", showHome);
+    $("apply").addEventListener("click", () => decide("applied"));
+    $("save-lead").addEventListener("click", () => decide("saved"));
+    $("skip").addEventListener("click", () => decide("skipped"));
+    $("rewrite").addEventListener("click", async () => {
+      if (!current) return;
+      $("rewrite").disabled = true;
+      try {
+        const job = await api("/api/jobs/" + encodeURIComponent(current.id) + "/cv", { method: "POST" });
+        current = job;
+        $("cv").value = job.tailored_cv || "";
+        $("note").value = job.cover_note || "";
+      } catch (error) {
+        showError(error);
+      } finally {
+        $("rewrite").disabled = false;
+      }
+    });
+
+    $("settings-open").addEventListener("click", () => $("settings").showModal());
+    $("settings-close").addEventListener("click", () => $("settings").close());
+    $("settings-form").addEventListener("submit", async (event) => {
+      event.preventDefault();
+      clearError();
+      const payload = {
+        base_url: $("base-url").value,
+        model: $("model").value,
+        clear_key: $("clear-key").checked,
+      };
+      if ($("api-key").value) payload.api_key = $("api-key").value;
+      const saveButton = event.submitter || event.target.querySelector("button[type=submit]");
+      saveButton.disabled = true;
+      $("test-model").disabled = true;
+      try {
+        const settings = await api("/api/settings", { method: "PUT", body: JSON.stringify(payload) });
+        $("api-key").value = "";
+        $("clear-key").checked = false;
+        $("key-hint").textContent = settings.has_key ? "A key is saved (" + settings.key_hint + ")." : "No key saved.";
+        await testSavedModel();
+      } catch (error) {
+        setModelStatus(errorText(error), "bad");
+        showError(error);
+      } finally {
+        saveButton.disabled = false;
+        $("test-model").disabled = false;
+      }
+    });
+    $("test-model").addEventListener("click", async () => {
+      clearError();
+      const saveButton = $("settings-form").querySelector("button[type=submit]");
+      saveButton.disabled = true;
+      $("test-model").disabled = true;
+      try {
+        await testSavedModel();
+      } catch (error) {
+        setModelStatus(errorText(error), "bad");
+        showError(error);
+      } finally {
+        saveButton.disabled = false;
+        $("test-model").disabled = false;
+      }
+    });
+
+    load().catch(showError);
+  </script>
+</body>
+</html>
