@@ -288,11 +288,14 @@ async def search(body: ProfileIn):
     if reason:
         raise HTTPException(status_code=400, detail=reason)
     jobs, warnings = await collect(query_keywords(profile))
-    ranked = rank_jobs(jobs, profile)[:25]
+    ranked = rank_jobs(jobs, profile)[:60]
     warnings = list(warnings)
     sources_down = bool(warnings) and not ranked
     if not ranked and not warnings:
-        warnings.append("No listings shared a skill or a past title with this resume.")
+        if jobs:
+            warnings.append("No listings were left after your excluded terms and work-mode limits.")
+        else:
+            warnings.append("The job boards returned no listings.")
     if not sources_down:
         db.store_search(ranked)
     return {"matched": len(ranked), "warnings": warnings, "profile": profile, **_board()}

@@ -51,7 +51,7 @@ def _keywords(term: str) -> list[str]:
 
 
 def distinctive_parts(term: str) -> list[str]:
-    """Pieces of a skill or title that can keep a job.
+    """Pieces of a skill or title that count as a close match.
 
     Generic role words are dropped. "Python Developer" can match on python.
     "Senior Engineer" matches on nothing, because both words are generic.
@@ -205,10 +205,10 @@ def score_job(job: dict, profile: dict) -> tuple[int, list[str]] | None:
             title_level = level
         if level == "heading":
             break
-    if not skill_hits and not title_level:
-        return None
 
-    # Resume skills outrank optional skills, which outrank a title hit. Date is the sort key.
+    # Resume skills outrank optional skills, which outrank a title hit.
+    # A listing with no shared skill or title stays on the board, below those matches.
+    overlap = bool(skill_hits or title_level)
     score = len(must_hits) * 1000 + len(nice_hits) * 150 + (200 if title_level == "heading" else 100 if title_level == "body" else 0)
     reasons: list[str] = []
     if skill_hits:
@@ -216,6 +216,8 @@ def score_job(job: dict, profile: dict) -> tuple[int, list[str]] | None:
     if title_term:
         prefix = "Title matches" if title_level == "heading" else "Mentions"
         reasons.append(f"{prefix} {title_term}")
+    if not overlap:
+        reasons.append("Other open listing")
 
     location = (job.get("location") or "").lower()
     city = (profile.get("city") or "").strip()
@@ -235,6 +237,9 @@ def score_job(job: dict, profile: dict) -> tuple[int, list[str]] | None:
     if restriction and not worldwide and "bangladesh" not in restriction.lower():
         score -= 6
         reasons.append(f"Listing is limited to {restriction}")
+    if not overlap:
+        # The smallest skill or title match is 100, before a listing limit of 6.
+        score = min(score, 50)
     return max(score, 1), reasons[:5]
 
 

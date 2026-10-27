@@ -662,7 +662,7 @@
         renderBoard(data);
         const warnings = data.warnings || [];
         if (!data.matched) {
-          showBanner(warnings.join(" ") || "No jobs matched the skills or past titles on your resume.", false);
+          showBanner(warnings.join(" ") || "No open listings came back for this search.", false);
         } else if (warnings.length >= 5) {
           showBanner(warnings.join(" "), false);
         }
