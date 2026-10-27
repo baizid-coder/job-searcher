@@ -1,6 +1,6 @@
 import unittest
 
-from app.match import rank_jobs, search_block_reason
+from app.match import rank_jobs, search_block_reason, select_visible
 
 
 def _job(title, company="Northwind", description="", source="Remote OK", remote=True, posted="2026-01-01"):
@@ -53,6 +53,33 @@ class RankTests(unittest.TestCase):
         low["salary"] = "20000"
         ranked = rank_jobs([low], PROFILE)
         self.assertEqual(len(ranked), 1)
+
+    def test_visible_board_keeps_other_listings_when_matches_fill_it(self):
+        jobs = [
+            _job(f"Python Developer {index}", company=f"Co{index}", description="Build services with Python.")
+            for index in range(70)
+        ]
+        jobs += [
+            _job(f"Teacher {index}", company=f"School{index}", description="Teach classes and grade papers.")
+            for index in range(30)
+        ]
+        visible = select_visible(rank_jobs(jobs, PROFILE), 60)
+        self.assertEqual(len(visible), 60)
+        self.assertTrue(all("Other open listing" not in job["reasons"] for job in visible[:40]))
+        self.assertTrue(all("Other open listing" in job["reasons"] for job in visible[40:]))
+        self.assertGreater(visible[0]["score"], visible[40]["score"])
+
+    def test_visible_board_keeps_every_close_match_that_fits(self):
+        jobs = [_job("Python Developer", description="Build services with Python.")]
+        jobs += [
+            _job(f"Teacher {index}", company=f"School{index}", description="Teach classes and grade papers.")
+            for index in range(10)
+        ]
+        visible = select_visible(rank_jobs(jobs, PROFILE), 60)
+        self.assertEqual(len(visible), 11)
+        self.assertNotIn("Other open listing", visible[0]["reasons"])
+        self.assertGreater(visible[0]["score"], visible[1]["score"])
+        self.assertTrue(all("Other open listing" in job["reasons"] for job in visible[1:]))
 
     def test_search_still_requires_a_resume(self):
         self.assertEqual(search_block_reason({}), "Paste or upload a resume before searching.")

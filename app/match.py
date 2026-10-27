@@ -253,3 +253,28 @@ def rank_jobs(jobs: list[dict], profile: dict) -> list[dict]:
         ranked.append({**job, "score": score, "reasons": reasons})
     ranked.sort(key=lambda job: (job["score"], _posted_key(job)), reverse=True)
     return ranked
+
+
+def select_visible(ranked: list[dict], limit: int = 60) -> list[dict]:
+    """At most `limit` listings, with close matches first.
+
+    Jobs that share a skill or past title stay above the others. When those
+    matches would fill the board, the last third is left for other listings
+    from the same fetch.
+    """
+    if limit <= 0:
+        return []
+    matches: list[dict] = []
+    others: list[dict] = []
+    for job in ranked:
+        if "Other open listing" in (job.get("reasons") or []):
+            others.append(job)
+        else:
+            matches.append(job)
+    if len(matches) >= limit and others:
+        other_slots = min(len(others), max(1, limit // 3))
+        match_slots = limit - other_slots
+    else:
+        match_slots = min(len(matches), limit)
+        other_slots = min(len(others), limit - match_slots)
+    return matches[:match_slots] + others[:other_slots]

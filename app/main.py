@@ -10,7 +10,7 @@ from pydantic import BaseModel, Field
 from app import db
 from app.cv import assemble_cv, extract_summary, template_documents, template_summary
 from app.llm import ModelError, build_documents, configured, complete, requirements_turn
-from app.match import query_keywords, rank_jobs, search_block_reason
+from app.match import query_keywords, rank_jobs, search_block_reason, select_visible
 from app.posting import _relevant, load_posting
 from app.resume import extract_pdf_text, parse_resume
 from app.sources import collect
@@ -288,7 +288,7 @@ async def search(body: ProfileIn):
     if reason:
         raise HTTPException(status_code=400, detail=reason)
     jobs, warnings = await collect(query_keywords(profile))
-    ranked = rank_jobs(jobs, profile)[:60]
+    ranked = select_visible(rank_jobs(jobs, profile))
     warnings = list(warnings)
     sources_down = bool(warnings) and not ranked
     if not ranked and not warnings:
