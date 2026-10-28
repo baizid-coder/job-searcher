@@ -40,7 +40,13 @@
       color: white;
       cursor: pointer;
     }
-    button.secondary { background: transparent; color: var(--ink); border: 1px solid var(--line); }
+    button.secondary, a.nav-link { background: transparent; color: var(--ink); border: 1px solid var(--line); }
+    a.nav-link {
+      display: inline-block;
+      border-radius: 999px;
+      padding: 10px 16px;
+      text-decoration: none;
+    }
     button.danger { background: var(--clay); }
     button:disabled { opacity: 0.6; cursor: wait; }
     textarea, input, select {
@@ -125,7 +131,10 @@
       <p class="eyebrow">Bangladesh and remote</p>
       <h1>Job finder</h1>
     </div>
-    <button id="settings-open" class="secondary" type="button">Settings</button>
+    <div class="row">
+      <a class="nav-link" href="/masters">Master's applications</a>
+      <button id="settings-open" class="secondary" type="button">Settings</button>
+    </div>
   </header>
   <div id="banner" hidden></div>
   <main id="home">
