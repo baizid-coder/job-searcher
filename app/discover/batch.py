@@ -63,6 +63,13 @@ def select_postings(
     thin = thin_families(available, target)
 
     if not has_verdicts:
+        # The first batch uses the onboarding profile when one exists:
+        # hard filters first, then about 70% near that profile and 30% different.
+        from app.onboarding.batch import select_for_discover
+
+        picked = select_for_discover(postings, target)
+        if picked is not None:
+            return picked, thin
         return _round_robin(grouped, target), thin
 
     explore: list[str] = []
