@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field
 
 from app import db
 from app.cv import assemble_cv, extract_summary, template_documents, template_summary
-from app.llm import ModelError, build_documents, configured, complete, requirements_turn
+from app.llm import NO_MODEL, ModelError, build_documents, configured, complete, requirements_turn
 from app.match import query_keywords, rank_jobs, search_block_reason, select_visible
 from app.posting import _relevant, load_posting
 from app.resume import extract_pdf_text, parse_resume
@@ -250,12 +250,12 @@ def save_settings(body: SettingsIn):
 async def test_settings():
     settings = db.get_settings()
     if not configured(settings):
-        raise HTTPException(status_code=400, detail="Add a base URL and a model name first.")
+        return {"ok": False, "configured": False, "reply": NO_MODEL}
     try:
         reply = await complete(settings, [{"role": "user", "content": "Reply with the single word ready."}])
     except ModelError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
-    return {"ok": True, "reply": reply.strip()[:200]}
+    return {"ok": True, "configured": True, "reply": reply.strip()[:200]}
 
 
 @app.post("/api/chat")
@@ -265,10 +265,12 @@ async def chat(body: ChatIn):
         raise HTTPException(status_code=400, detail="Write a message first.")
     settings = db.get_settings()
     if not configured(settings):
-        raise HTTPException(
-            status_code=400,
-            detail="Connect a model in Settings. You can still fill the form and search without one.",
-        )
+        return {
+            "reply": NO_MODEL,
+            "configured": False,
+            "profile": db.get_profile(),
+            "messages": db.list_messages(30),
+        }
     try:
         reply, patch = await requirements_turn(settings, db.list_messages(12), db.get_profile(), message)
     except ModelError as exc:
@@ -278,7 +280,7 @@ async def chat(body: ChatIn):
     db.add_message("user", message)
     db.add_message("assistant", reply)
     profile = db.save_profile(_chat_patch(patch))
-    return {"reply": reply, "profile": profile, "messages": db.list_messages(30)}
+    return {"reply": reply, "configured": True, "profile": profile, "messages": db.list_messages(30)}
 
 
 @app.post("/api/search")

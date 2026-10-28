@@ -161,11 +161,19 @@ def get_settings() -> dict:
 def public_settings() -> dict:
     settings = get_settings()
     key = settings["api_key"]
+    ready = bool(settings.get("base_url") and settings.get("model"))
+    note = ""
+    if not ready:
+        from app.llm import NO_MODEL
+
+        note = NO_MODEL
     return {
         "base_url": settings["base_url"],
         "model": settings["model"],
         "has_key": bool(key),
         "key_hint": f"····{key[-4:]}" if len(key) >= 4 else ("saved" if key else ""),
+        "configured": ready,
+        "model_note": note,
     }
 
 

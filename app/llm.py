@@ -12,6 +12,10 @@ class ModelError(Exception):
     pass
 
 
+# Shown when chat or a model-written CV is asked for and settings have no endpoint.
+NO_MODEL = "Chat and a model-written CV need a model, and none is configured in this environment."
+
+
 # Cold llama3.2 on CPU often spends the first minute loading weights.
 _CONNECT_SECONDS = 10.0
 _READ_SECONDS = 180.0
@@ -102,7 +106,7 @@ def _parse_json(text: str) -> dict:
 
 async def complete(settings: dict, messages: list[dict], timeout: float | None = None) -> str:
     if not configured(settings):
-        raise ModelError("Connect a model in Settings before using chat.")
+        raise ModelError(NO_MODEL)
     headers = {"Content-Type": "application/json"}
     if settings.get("api_key"):
         headers["Authorization"] = f"Bearer {settings['api_key']}"

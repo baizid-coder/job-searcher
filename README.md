@@ -15,7 +15,7 @@ Open http://127.0.0.1:8000
 
 ## Chat model
 
-The chat and the CV summary use an OpenAI-compatible model. Search, the form, and a plain CV still work if you do not connect one.
+The chat and a model-written CV summary use an OpenAI-compatible model. Search, saving a resume, and a template CV still work when none is configured. The page says so instead of asking you to connect one.
 
 Ollama, on this PC: install Ollama, run `ollama pull llama3.2`, then in Settings set the base URL to `http://127.0.0.1:11434/v1` and the model to `llama3.2`.
 
