@@ -133,6 +133,7 @@
       <section class="card">
         <h2>Tell it what you want</h2>
         <p class="hint">Talk the way you would to a person. The form on the right updates from the conversation.</p>
+        <p id="model-note" class="hint" hidden></p>
         <div id="messages"></div>
         <form id="chat-form" class="fields">
           <textarea id="chat-input" placeholder="I want junior Python work in Dhaka, and remote roles are fine. I know Django and Excel."></textarea>
@@ -213,6 +214,7 @@
     <h2 id="review-title"></h2>
     <p id="review-meta" class="meta"></p>
     <p id="review-reasons"></p>
+    <p id="cv-model-note" class="hint" hidden></p>
     <div class="fields" style="margin-top: 8px;">
       <label>Edited resume <textarea id="cv"></textarea></label>
       <label>Cover note <textarea id="note"></textarea></label>
@@ -236,7 +238,7 @@
   <dialog id="settings">
     <form id="settings-form" class="fields">
       <h2>Model</h2>
-      <p class="hint">Ollama: base URL http://127.0.0.1:11434/v1 and the model you pulled. A hosted model also needs an API key. It stays on this PC.</p>
+      <p class="hint">Ollama: base URL http://127.0.0.1:11434/v1 and the model you pulled. A hosted model also needs an API key. It stays on this PC. Search, saving a resume, and a template CV work with no model connected.</p>
       <label>Base URL <input id="base-url" placeholder="http://127.0.0.1:11434/v1"></label>
       <label>Model <input id="model" placeholder="llama3.2"></label>
       <label>API key <input id="api-key" type="password" autocomplete="off"></label>
@@ -285,9 +287,24 @@
       return typeof detail === "string" ? detail : "Something went wrong.";
     }
 
+    function applyModelState(settings, fallback) {
+      const configured = Boolean(settings && settings.configured);
+      const note = configured ? "" : ((settings && settings.model_note) || fallback || "");
+      setLine("model-note", note);
+      setLine("cv-model-note", note);
+      return configured;
+    }
+
     async function testSavedModel() {
       setModelStatus("Checking connection… " + MODEL_WAIT, "pending");
       const result = await api("/api/settings/test", { method: "POST" });
+      if (!result.ok) {
+        const message = result.reply || "Chat and a model-written CV need a model, and none is configured in this environment.";
+        applyModelState({ configured: false, model_note: message });
+        setModelStatus(message);
+        return;
+      }
+      applyModelState({ configured: true });
       const reply = (result.reply || "").trim();
       const message = reply ? "Connected. Model replied: " + reply : "Connected. The model replied.";
       setModelStatus(message, "ok");
@@ -545,6 +562,7 @@
       $("base-url").value = data.settings.base_url || "";
       $("model").value = data.settings.model || "";
       $("key-hint").textContent = data.settings.has_key ? "A key is saved (" + data.settings.key_hint + ")." : "No key saved.";
+      applyModelState(data.settings);
     }
 
     $("chat-form").addEventListener("submit", async (event) => {
@@ -557,6 +575,11 @@
       setLine("chat-status", MODEL_WAIT);
       try {
         const data = await api("/api/chat", { method: "POST", body: JSON.stringify({ message }) });
+        if (data.configured === false) {
+          applyModelState({ configured: false, model_note: data.reply });
+          setLine("chat-status", "");
+          return;
+        }
         $("chat-input").value = "";
         fillForm(data.profile);
         renderMessages(data.messages);
