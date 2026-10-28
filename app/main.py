@@ -8,6 +8,8 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
 from app import db
+from app.masters import store as masters_store
+from app.masters.api import router as masters_router
 from app.cv import assemble_cv, extract_summary, template_documents, template_summary
 from app.llm import ModelError, build_documents, configured, complete, requirements_turn
 from app.match import query_keywords, rank_jobs, search_block_reason, select_visible
@@ -25,10 +27,12 @@ PDF_CONTENT_TYPES = {"", "application/pdf", "application/x-pdf", "application/oc
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     db.init()
+    masters_store.init()
     yield
 
 
 app = FastAPI(title="Job finder", lifespan=lifespan)
+app.include_router(masters_router)
 
 
 class ProfileIn(BaseModel):
