@@ -36,6 +36,7 @@ class ProfileIn(BaseModel):
     name: str = ""
     contact: str = ""
     titles: list[str] | str = Field(default_factory=list)
+    seeking: list[str] | str = Field(default_factory=list)
     must_have: list[str] | str = Field(default_factory=list)
     nice_have: list[str] | str = Field(default_factory=list)
     city: str = "Dhaka"
@@ -96,9 +97,13 @@ def _board() -> dict:
     }
 
 
-def _chat_patch(patch: dict) -> dict:
+def _same_terms(left, right) -> bool:
+    return [item.lower() for item in db.split_terms(left)] == [item.lower() for item in db.split_terms(right)]
+
+
+def _chat_patch(patch: dict, previous: dict | None = None) -> dict:
     cleaned: dict = {}
-    for key in ("titles", "must_have", "nice_have", "exclude"):
+    for key in ("seeking", "titles", "must_have", "nice_have", "exclude"):
         if key in patch:
             terms = db.split_terms(patch[key])
             if terms:
@@ -110,6 +115,13 @@ def _chat_patch(patch: dict) -> dict:
         cleaned["city"] = city
     if patch.get("salary_floor_bdt") not in (None, ""):
         cleaned["salary_floor_bdt"] = patch["salary_floor_bdt"]
+    # The wanted role belongs in seeking. A reply that writes it into titles would erase past roles.
+    previous_titles = (previous or {}).get("titles") or []
+    if "titles" in cleaned and not _same_terms(cleaned["titles"], previous_titles):
+        if "seeking" not in cleaned:
+            cleaned["seeking"] = cleaned.pop("titles")
+        elif _same_terms(cleaned["titles"], cleaned["seeking"]):
+            cleaned.pop("titles")
     return cleaned
 
 
@@ -277,7 +289,7 @@ async def chat(body: ChatIn):
         raise HTTPException(status_code=502, detail="The model did not return requirements I could read. Try again.") from exc
     db.add_message("user", message)
     db.add_message("assistant", reply)
-    profile = db.save_profile(_chat_patch(patch))
+    profile = db.save_profile(_chat_patch(patch, db.get_profile()))
     return {"reply": reply, "profile": profile, "messages": db.list_messages(30)}
 
 
@@ -292,7 +304,10 @@ async def search(body: ProfileIn):
     warnings = list(warnings)
     sources_down = bool(warnings) and not ranked
     if not ranked and not warnings:
-        if jobs:
+        sought = db.split_terms(profile.get("seeking"))
+        if sought and jobs:
+            warnings.append("No listings matched " + ", ".join(sought[:4]) + ".")
+        elif jobs:
             warnings.append("No listings were left after your excluded terms and work-mode limits.")
         else:
             warnings.append("The job boards returned no listings.")

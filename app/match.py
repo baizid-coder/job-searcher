@@ -130,25 +130,67 @@ def _overlap_level(job_title: str, blob: str, term: str) -> str:
     return best
 
 
+def _sought(profile: dict) -> list[str]:
+    return _terms(profile.get("seeking"))
+
+
+_SENIORITY = {"senior", "junior", "lead", "intern", "associate"}
+
+
+def _seeking_tokens(term: str) -> list[str]:
+    """Words that identify a role, including analyst or developer.
+
+    Seniority words are dropped. "Junior Python" is identified by python.
+    "Data Analyst" keeps both words, so a mention of data alone is not enough.
+    """
+    tokens = [token for token in re.split(r"[^a-z0-9+#]+", term.lower()) if token]
+    return [token for token in tokens if token not in _SENIORITY and (len(token) > 2 or token in SHORT_KEEP)]
+
+
+def _seek_queries(term: str) -> list[str]:
+    """Board queries for one role the person asked for.
+
+    A multi-word role is searched as a phrase, so data analyst is not searched
+    as data. A short role such as junior Python is also searched as python.
+    """
+    cleaned = term.strip()
+    if not cleaned:
+        return []
+    required = _seeking_tokens(cleaned)
+    if len(required) >= 2:
+        return [cleaned]
+    if len(required) == 1 and required[0] not in GENERIC_TITLE_WORDS and required[0] not in COMMON_TOKENS:
+        if required[0] == cleaned.lower():
+            return [cleaned]
+        return [cleaned, required[0]]
+    if len(cleaned.split()) >= 2:
+        return [cleaned]
+    return []
+
+
 def query_keywords(profile: dict, limit: int = 6) -> list[str]:
-    """Tool names first, then other rare skill words. An empty title list is fine."""
+    """The role they asked for first. Otherwise tool names, then rare skill words."""
+    sought: list[str] = []
+    for term in _sought(profile):
+        sought.extend(_seek_queries(term))
     exact: list[str] = []
     rare: list[str] = []
     phrases: list[str] = []
-    for term in [*_skill_terms(profile), *_terms(profile.get("titles"))]:
-        if not _usable(term):
-            continue
-        parts = distinctive_parts(term)
-        phrases.append(parts[0])
-        tokens = parts[1:]
-        uncommon = [token for token in tokens if token not in COMMON_TOKENS]
-        if len(tokens) == 1 and uncommon:
-            exact.append(uncommon[0])
-        else:
-            rare.extend(uncommon)
+    if not sought:
+        for term in [*_skill_terms(profile), *_terms(profile.get("titles"))]:
+            if not _usable(term):
+                continue
+            parts = distinctive_parts(term)
+            phrases.append(parts[0])
+            tokens = parts[1:]
+            uncommon = [token for token in tokens if token not in COMMON_TOKENS]
+            if len(tokens) == 1 and uncommon:
+                exact.append(uncommon[0])
+            else:
+                rare.extend(uncommon)
     chosen: list[str] = []
     seen: set[str] = set()
-    for term in [*exact, *rare, *phrases]:
+    for term in [*sought, *exact, *rare, *phrases]:
         key = term.lower()
         if key in seen:
             continue
@@ -171,6 +213,36 @@ def search_block_reason(profile: dict) -> str | None:
     if titles:
         return "Words like developer, engineer, and manager are not enough to search. Paste a resume that lists specific skills."
     return "Paste or upload a resume before searching."
+
+
+def _seeking_level(job_title: str, blob: str, term: str) -> str:
+    """How closely a listing matches a role the person asked for.
+
+    "Data Analyst" must mention both words, so a business analyst does not pass
+    and neither does a developer job that only says data. "Junior Python" can
+    match on python. "Senior Engineer" has to appear as that phrase.
+    """
+    cleaned = term.strip()
+    if not cleaned:
+        return ""
+    phrase_level = _term_level(job_title, blob, cleaned)
+    if phrase_level:
+        return phrase_level
+    required = _seeking_tokens(cleaned)
+    if not required or (len(required) == 1 and required[0] in GENERIC_TITLE_WORDS):
+        return ""
+    if len(required) == 1:
+        return _term_level(job_title, blob, required[0])
+    best = ""
+    for token in required:
+        level = _term_level(job_title, blob, token)
+        if not level:
+            return ""
+        if level == "heading":
+            best = "heading"
+        elif not best:
+            best = level
+    return best
 
 
 def score_job(job: dict, profile: dict) -> tuple[int, list[str]] | None:
@@ -205,12 +277,36 @@ def score_job(job: dict, profile: dict) -> tuple[int, list[str]] | None:
             title_level = level
         if level == "heading":
             break
-
-    # Resume skills outrank optional skills, which outrank a title hit.
-    # A listing with no shared skill or title stays on the board, below those matches.
-    overlap = bool(skill_hits or title_level)
-    score = len(must_hits) * 1000 + len(nice_hits) * 150 + (200 if title_level == "heading" else 100 if title_level == "body" else 0)
+    seeking_terms = [term for term in _sought(profile) if _usable(term) or len(term.split()) >= 2]
+    seek_term = ""
+    seek_level = ""
+    title_points = 200 if title_level == "heading" else 100 if title_level == "body" else 0
+    skill_points = len(must_hits) * 1000 + len(nice_hits) * 150
+    if seeking_terms:
+        for term in seeking_terms:
+            level = _seeking_level(job_title, blob, term)
+            if not level:
+                continue
+            if level == "heading" or not seek_level:
+                seek_term = term
+                seek_level = level
+            if level == "heading":
+                break
+        if not seek_level:
+            return None
+        # The role they asked for outranks resume skills. Skills still order those jobs.
+        seek_points = 6000 if seek_level == "heading" else 2000 if seek_level == "body" else 0
+        score = seek_points + skill_points + title_points
+        overlap = True
+    else:
+        # Resume skills outrank optional skills, which outrank a title hit.
+        # A listing with no shared skill or title stays on the board, below those matches.
+        overlap = bool(skill_hits or title_level)
+        score = skill_points + title_points
     reasons: list[str] = []
+    if seek_term:
+        prefix = "You asked for" if seek_level == "heading" else "Fits your request"
+        reasons.append(f"{prefix} {seek_term}")
     if skill_hits:
         reasons.append("Skills: " + ", ".join(skill_hits[:4]))
     if title_term:

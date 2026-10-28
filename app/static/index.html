@@ -58,6 +58,7 @@
       background: transparent;
     }
     textarea { min-height: 88px; resize: vertical; }
+    textarea.short { min-height: 64px; }
     label { display: grid; gap: 6px; font-size: 14px; color: var(--muted); }
     .top, .review-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
     .card {
@@ -132,7 +133,7 @@
     <div class="top">
       <section class="card">
         <h2>Tell it what you want</h2>
-        <p class="hint">Talk the way you would to a person. The form on the right updates from the conversation.</p>
+        <p class="hint">Talk the way you would to a person. The reply names the role it understood, and Looking for on the right is what search keeps.</p>
         <div id="messages"></div>
         <form id="chat-form" class="fields">
           <textarea id="chat-input" placeholder="I want junior Python work in Dhaka, and remote roles are fine. I know Django and Excel."></textarea>
@@ -145,6 +146,8 @@
       <section class="card">
         <h2>Requirements</h2>
         <form id="profile-form" class="fields">
+          <label>Looking for <textarea id="seeking" class="short" placeholder="Filled from the conversation, one role per line. Example: junior Python"></textarea></label>
+          <p id="understood" class="hint" hidden></p>
           <label>Resume
             <textarea id="resume" placeholder="Paste your resume. Search uses it, so you do not have to type a job title."></textarea>
           </label>
@@ -155,7 +158,7 @@
           </div>
           <p class="hint">Read PDF fills the same fields. If the file is only a scanned image, paste the text instead.</p>
           <p id="from-resume" class="hint" hidden></p>
-          <p class="hint">Search uses skills from the resume, so jobs in other fields can show up. Leave the title blank unless you want to boost one. Open a lead to check the resume edited for that job.</p>
+          <p class="hint">Looking for is the role from the conversation. Search then keeps jobs of that kind, and skills decide the order. Leave it blank and search uses the resume, with other open listings shown below the closer matches. Open a lead to check the resume edited for that job.</p>
           <label>Name <input id="name" autocomplete="name"></label>
           <label>Contact <input id="contact" placeholder="email or phone"></label>
           <label>Job titles, optional <textarea id="titles" placeholder="Leave blank to search from the resume. Add a title only to boost that role."></textarea></label>
@@ -332,6 +335,21 @@
 
     let savedResume = "";
 
+    function showUnderstood(profile) {
+      const line = $("understood");
+      const seeking = profile.seeking || [];
+      if (!seeking.length) {
+        line.hidden = true;
+        line.textContent = "";
+        return;
+      }
+      const where = profile.work_mode === "remote" ? "remote only" : "remote and on-site in Bangladesh";
+      const city = (profile.city || "").trim();
+      const place = city ? city + ", " + where : where;
+      line.hidden = false;
+      line.textContent = "Search will keep " + seeking.join(", ") + " roles (" + place + "). Skills rank those jobs.";
+    }
+
     function showInferred(profile) {
       const line = $("from-resume");
       const name = (profile.name || "").trim();
@@ -364,6 +382,7 @@
       $("name").value = profile.name || "";
       $("contact").value = profile.contact || "";
       $("titles").value = (profile.titles || []).join("\n");
+      $("seeking").value = (profile.seeking || []).join("\n");
       $("must").value = (profile.must_have || []).join("\n");
       $("nice").value = (profile.nice_have || []).join("\n");
       $("city").value = profile.city || "Dhaka";
@@ -372,6 +391,7 @@
       $("exclude").value = (profile.exclude || []).join("\n");
       savedResume = profile.resume_text || "";
       showInferred(profile);
+      showUnderstood(profile);
     }
 
     async function useResumeText() {
@@ -386,6 +406,7 @@
         name: $("name").value,
         contact: $("contact").value,
         titles: lines($("titles").value),
+        seeking: lines($("seeking").value),
         must_have: lines($("must").value),
         nice_have: lines($("nice").value),
         city: $("city").value,
@@ -459,7 +480,10 @@
       renderList($("skipped"), data.skipped || [], "No skipped leads.");
       $("show-skipped").textContent = "Show skipped (" + (data.skipped_count || 0) + ")";
       if (typeof data.matched === "number") {
-        $("match-count").textContent = data.matched + " matched this search";
+        const seeking = (data.profile && data.profile.seeking) || [];
+        $("match-count").textContent = seeking.length
+          ? data.matched + " matched " + seeking.join(", ")
+          : data.matched + " matched this search";
       }
       const warnings = $("warnings");
       warnings.replaceChildren();
@@ -560,7 +584,8 @@
         $("chat-input").value = "";
         fillForm(data.profile);
         renderMessages(data.messages);
-        setLine("chat-status", "");
+        const seeking = (data.profile.seeking || []).join(", ");
+        setLine("chat-status", seeking ? "Understood. Search will use: " + seeking + "." : "");
       } catch (error) {
         showModelFailure(error, "chat-status");
       } finally {
@@ -586,15 +611,22 @@
     $("resume").addEventListener("blur", () => {
       useResumeText().catch(showError);
     });
-    for (const id of ["name", "titles", "must", "nice"]) {
-      $(id).addEventListener("input", () => {
+    for (const id of ["name", "titles", "must", "nice", "seeking", "city", "work-mode"]) {
+      const refreshUnderstood = () => {
         showInferred({
           resume_text: $("resume").value,
           name: $("name").value,
           must_have: lines($("must").value),
           titles: lines($("titles").value),
         });
-      });
+        showUnderstood({
+          seeking: lines($("seeking").value),
+          city: $("city").value,
+          work_mode: $("work-mode").value,
+        });
+      };
+      $(id).addEventListener("input", refreshUnderstood);
+      $(id).addEventListener("change", refreshUnderstood);
     }
 
     $("read-pdf").addEventListener("click", async () => {
