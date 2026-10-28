@@ -356,7 +356,7 @@
       const skills = profile.must_have || [];
       const titles = profile.titles || [];
       const hasResume = Boolean((profile.resume_text || "").trim());
-      if (!hasResume && !name && !skills.length && !titles.length) {
+      if (!hasResume) {
         line.hidden = true;
         line.textContent = "";
         return;

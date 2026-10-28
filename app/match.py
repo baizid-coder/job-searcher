@@ -215,34 +215,27 @@ def search_block_reason(profile: dict) -> str | None:
     return "Paste or upload a resume before searching."
 
 
-def _seeking_level(job_title: str, blob: str, term: str) -> str:
+def _seeking_level(job_title: str, _blob: str, term: str) -> str:
     """How closely a listing matches a role the person asked for.
 
-    "Data Analyst" must mention both words, so a business analyst does not pass
-    and neither does a developer job that only says data. "Junior Python" can
-    match on python. "Senior Engineer" has to appear as that phrase.
+    The role has to be in the job title. "Data Analyst" matches "Senior Data
+    Analyst" and "Analyst, Data Science". It does not match a risk analyst, or
+    a coordinator whose description merely says data. "Junior Python" matches a
+    title that says python. "Senior Engineer" has to appear as that phrase.
     """
     cleaned = term.strip()
     if not cleaned:
         return ""
-    phrase_level = _term_level(job_title, blob, cleaned)
-    if phrase_level:
-        return phrase_level
     required = _seeking_tokens(cleaned)
     if not required or (len(required) == 1 and required[0] in GENERIC_TITLE_WORDS):
+        if len(cleaned.split()) >= 2 and contains_term(job_title, cleaned):
+            return "heading"
         return ""
     if len(required) == 1:
-        return _term_level(job_title, blob, required[0])
-    best = ""
-    for token in required:
-        level = _term_level(job_title, blob, token)
-        if not level:
-            return ""
-        if level == "heading":
-            best = "heading"
-        elif not best:
-            best = level
-    return best
+        return "heading" if contains_term(job_title, required[0]) else ""
+    if contains_term(job_title, cleaned) or all(contains_term(job_title, token) for token in required):
+        return "heading"
+    return ""
 
 
 def score_job(job: dict, profile: dict) -> tuple[int, list[str]] | None:

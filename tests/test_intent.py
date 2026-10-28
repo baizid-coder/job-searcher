@@ -46,6 +46,8 @@ class RankingTests(unittest.TestCase):
                 _job("plain", "Data Analyst", "Prepare weekly reports."),
                 _job("business", "Business Analyst", "Strong Excel skills for stakeholder reports."),
                 _job("python", "Python Developer", "Excel automation and data scripts."),
+                _job("risk", "Risk Analyst", "Review data quality with the analyst team using Excel."),
+                _job("coordinator", "Project Coordinator", "Partner with the data analyst on Excel reports."),
             ],
             profile,
         )
