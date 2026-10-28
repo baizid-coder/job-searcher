@@ -19,14 +19,23 @@
   --discover-font-weight-strong: 600;
   --discover-line-height: 1.5;
 
-  --discover-color-bg: #f3efe4;
-  --discover-color-surface: #fffdf8;
-  --discover-color-border: #ddd4c4;
-  --discover-color-text: #1e1a16;
-  --discover-color-muted: #5e564c;
-  --discover-color-primary: #0e6b52;
-  --discover-color-danger: #8d3d2c;
-  --discover-color-success: #0e6b52;
+  --background: #f3efe4;
+  --surface: #fffdf8;
+  --border: #ddd4c4;
+  --text: #1e1a16;
+  --muted: #5e564c;
+  --primary: #0e6b52;
+  --danger: #8d3d2c;
+  --success: #1f7a4d;
+
+  --discover-color-bg: var(--background);
+  --discover-color-surface: var(--surface);
+  --discover-color-border: var(--border);
+  --discover-color-text: var(--text);
+  --discover-color-muted: var(--muted);
+  --discover-color-primary: var(--primary);
+  --discover-color-danger: var(--danger);
+  --discover-color-success: var(--success);
 
   --discover-radius: 8px;
   --discover-border-width: 1px;

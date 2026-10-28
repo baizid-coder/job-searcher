@@ -327,6 +327,43 @@ class OnboardingTests(unittest.TestCase):
         self.assertEqual(len(open_filter["jobs"]), 2)
         self.assertTrue(all(job["company"] == "Acme" for job in open_filter["jobs"]))
 
+    def test_discover_first_batch_uses_onboarding_profile(self):
+        from app.discover.batch import select_postings
+        from app.discover.classify import extract
+        from app.onboarding.batch import is_near, select_for_discover
+
+        near = [
+            _job(f"n{index}", "Python Developer", f"Good{index}", "Build services with Python")
+            for index in range(10)
+        ]
+        far = [
+            _job(f"f{index}", "Nurse", f"Care{index}", "Patient care and ward rounds")
+            for index in range(10)
+        ]
+        blocked = [
+            _job(f"b{index}", "Python Developer", "Acme", "Build services with Python")
+            for index in range(2)
+        ]
+        postings = []
+        for job in near + far + blocked:
+            features = extract(job)
+            self.assertIsNotNone(features)
+            postings.append(features)
+        self.assertIsNone(select_for_discover(postings, 10))
+
+        service.save_constraints({"exclude_companies": ["Acme"]})
+        store.insert_version(
+            {"fields": [_python_field()], "swipes": [], "onboarding_status": "complete"},
+            major_change=True,
+            reason="test",
+        )
+        selected, _thin = select_postings(postings, {}, set(), target=10, has_verdicts=False)
+        self.assertEqual(len(selected), 10)
+        self.assertTrue(all(item["company"] != "Acme" for item in selected))
+        near_count = sum(1 for item in selected if is_near(item, [_python_field()]))
+        self.assertEqual(near_count, 7)
+        self.assertEqual(len(selected) - near_count, 3)
+
     def test_swipe_bumps_version_and_gate_blocks_until_override_or_stable(self):
         service.save_constraints({})
         db.save_profile({"resume_text": SAMPLE, "name": "Amina Rahman"})
