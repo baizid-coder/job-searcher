@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Discover · Job finder</title>
+  <link rel="stylesheet" href="/discover/discover-tokens.css">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    [hidden] { display: none !important; }
+    body {
+      margin: 0;
+      background: var(--discover-color-bg);
+      color: var(--discover-color-text);
+      font-family: var(--discover-font-family);
+      font-size: var(--discover-font-size-3);
+      font-weight: var(--discover-font-weight);
+      line-height: var(--discover-line-height);
+      overflow-x: hidden;
+    }
+    .discover-page {
+      max-width: var(--discover-page-max);
+      margin: 0 auto;
+      padding: var(--discover-page-pad);
+      overflow-x: hidden;
+    }
+    .discover-header {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--discover-related-gap);
+      margin-bottom: var(--discover-section-gap);
+    }
+    h1, h2, p { margin: 0; }
+    h1 {
+      font-size: var(--discover-font-size-6);
+      font-weight: var(--discover-font-weight-strong);
+    }
+    h2 {
+      font-size: var(--discover-font-size-5);
+      font-weight: var(--discover-font-weight-strong);
+    }
+    .discover-kicker {
+      color: var(--discover-color-muted);
+      font-size: var(--discover-font-size-1);
+    }
+    .discover-link {
+      color: var(--discover-color-primary);
+      font-weight: var(--discover-font-weight-strong);
+      text-decoration: none;
+    }
+    .discover-link:hover { color: var(--discover-color-text); }
+    .discover-link:focus-visible {
+      outline: var(--discover-focus-ring);
+      outline-offset: var(--discover-space-1);
+    }
+    .discover-layout {
+      display: grid;
+      grid-template-columns: var(--discover-columns);
+      gap: var(--discover-section-gap);
+      align-items: start;
+    }
+    .discover-section {
+      display: grid;
+      gap: var(--discover-section-gap);
+      min-width: 0;
+    }
+    .discover-stack, .discover-card, .discover-line {
+      display: grid;
+      gap: var(--discover-related-gap);
+      min-width: 0;
+    }
+    .discover-card, .discover-line, .discover-state {
+      background: var(--discover-color-surface);
+      border: var(--discover-border);
+      border-radius: var(--discover-radius);
+      padding: var(--discover-card-pad);
+    }
+    .discover-card {
+      touch-action: none;
+      user-select: none;
+    }
+    .discover-muted { color: var(--discover-color-muted); font-size: var(--discover-font-size-2); }
+    .discover-title { font-size: var(--discover-font-size-4); font-weight: var(--discover-font-weight-strong); }
+    .discover-tag, .discover-badge {
+      justify-self: start;
+      border: var(--discover-border);
+      border-radius: var(--discover-radius);
+      padding: var(--discover-space-1) var(--discover-space-3);
+      font-size: var(--discover-font-size-2);
+      font-weight: var(--discover-font-weight-strong);
+    }
+    .discover-badge { color: var(--discover-color-success); }
+    .discover-summary {
+      white-space: pre-line;
+      overflow-wrap: anywhere;
+    }
+    .discover-row {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-start;
+      align-items: center;
+      gap: var(--discover-related-gap);
+    }
+    .discover-button, .discover-input {
+      height: var(--discover-control-height);
+      border: var(--discover-border);
+      border-radius: var(--discover-radius);
+      background: var(--discover-color-surface);
+      color: var(--discover-color-text);
+      font-family: inherit;
+      font-size: var(--discover-font-size-3);
+      font-weight: var(--discover-font-weight-strong);
+      padding: 0 var(--discover-space-4);
+    }
+    .discover-input { width: 100%; font-weight: var(--discover-font-weight); }
+    .discover-button { cursor: pointer; }
+    .discover-button.primary {
+      background: var(--discover-color-primary);
+      color: var(--discover-color-surface);
+    }
+    .discover-button.danger {
+      background: var(--discover-color-danger);
+      color: var(--discover-color-surface);
+    }
+    .discover-button:hover:not(:disabled) {
+      background: var(--discover-color-text);
+      color: var(--discover-color-surface);
+    }
+    .discover-button:focus-visible, .discover-input:focus-visible {
+      outline: var(--discover-focus-ring);
+      outline-offset: var(--discover-space-1);
+    }
+    .discover-button:disabled {
+      opacity: var(--discover-opacity-disabled);
+      cursor: default;
+    }
+    .discover-skills { margin: 0; padding-left: var(--discover-space-4); }
+  </style>
+</head>
+<body>
+  <div class="discover-page">
+    <header class="discover-header">
+      <div class="discover-stack">
+        <p class="discover-kicker">Job finder</p>
+        <h1>Discover</h1>
+      </div>
+      <div class="discover-row">
+        <span id="stable-badge" class="discover-badge" hidden>Stable</span>
+        <a class="discover-link" href="/">Back to job finder</a>
+      </div>
+    </header>
+    <div class="discover-layout">
+      <section class="discover-section" aria-labelledby="posting-heading">
+        <h2 id="posting-heading">Postings</h2>
+        <p id="posting-meta" class="discover-muted"></p>
+        <div id="posting-loading" class="discover-state">Loading postings…</div>
+        <div id="posting-empty" class="discover-state" hidden>
+          <p id="posting-empty-text">No postings left to react to.</p>
+        </div>
+        <div id="posting-error" class="discover-state" hidden>
+          <p id="posting-error-text"></p>
+          <button id="posting-retry" class="discover-button" type="button">Try again</button>
+        </div>
+        <article id="posting-card" class="discover-card" hidden>
+          <span id="posting-family" class="discover-tag"></span>
+          <h3 id="posting-title" class="discover-title"></h3>
+          <p id="posting-company"></p>
+          <p id="posting-place" class="discover-muted"></p>
+          <p id="posting-salary" class="discover-muted" hidden></p>
+          <p id="posting-summary" class="discover-summary"></p>
+          <div>
+            <p class="discover-muted">Key skills</p>
+            <ul id="posting-skills" class="discover-skills"></ul>
+          </div>
+        </article>
+        <div id="posting-actions" class="discover-row" hidden>
+          <button id="choice-yes" class="discover-button primary" type="button">Yes</button>
+          <button id="choice-maybe" class="discover-button" type="button">Maybe</button>
+          <button id="choice-no" class="discover-button danger" type="button">No</button>
+        </div>
+        <div id="reason-panel" class="discover-stack" hidden>
+          <p id="reason-prompt" class="discover-muted"></p>
+          <div id="reason-chips" class="discover-row"></div>
+          <button id="reason-skip" class="discover-button" type="button">Skip</button>
+        </div>
+        <p class="discover-muted">Swipe the card right for yes, left for no, and up for maybe. Keys Y, M, and N do the same.</p>
+      </section>
+      <section class="discover-section" aria-labelledby="profile-heading">
+        <h2 id="profile-heading">My profile</h2>
+        <div id="profile-loading" class="discover-state">Loading profile…</div>
+        <div id="profile-empty" class="discover-state" hidden>
+          <p id="profile-empty-text"></p>
+        </div>
+        <div id="profile-error" class="discover-state" hidden>
+          <p id="profile-error-text"></p>
+          <button id="profile-retry" class="discover-button" type="button">Try again</button>
+        </div>
+        <div id="profile-body" class="discover-stack" hidden>
+          <p id="profile-label" class="discover-muted"></p>
+          <div id="profile-lines" class="discover-stack"></div>
+        </div>
+      </section>
+    </div>
+  </div>
+  <script src="/discover/discover.js"></script>
+</body>
+</html>

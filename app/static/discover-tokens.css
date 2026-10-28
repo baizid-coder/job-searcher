@@ -1,0 +1,51 @@
+:root {
+  --discover-space-1: 4px;
+  --discover-space-2: 8px;
+  --discover-space-3: 12px;
+  --discover-space-4: 16px;
+  --discover-space-5: 24px;
+  --discover-space-6: 32px;
+  --discover-space-7: 48px;
+
+  --discover-font-size-1: 12px;
+  --discover-font-size-2: 14px;
+  --discover-font-size-3: 16px;
+  --discover-font-size-4: 20px;
+  --discover-font-size-5: 24px;
+  --discover-font-size-6: 32px;
+
+  --discover-font-family: "Segoe UI", sans-serif;
+  --discover-font-weight: 400;
+  --discover-font-weight-strong: 600;
+  --discover-line-height: 1.5;
+
+  --discover-color-bg: #f3efe4;
+  --discover-color-surface: #fffdf8;
+  --discover-color-border: #ddd4c4;
+  --discover-color-text: #1e1a16;
+  --discover-color-muted: #5e564c;
+  --discover-color-primary: #0e6b52;
+  --discover-color-danger: #8d3d2c;
+  --discover-color-success: #0e6b52;
+
+  --discover-radius: 8px;
+  --discover-border-width: 1px;
+  --discover-border: var(--discover-border-width) solid var(--discover-color-border);
+  --discover-focus-ring: var(--discover-border-width) solid var(--discover-color-primary);
+
+  --discover-page-max: 1100px;
+  --discover-page-pad: var(--discover-space-5);
+  --discover-card-pad: var(--discover-space-4);
+  --discover-section-gap: var(--discover-space-5);
+  --discover-related-gap: var(--discover-space-3);
+  --discover-control-height: 40px;
+  --discover-opacity-disabled: 0.55;
+  --discover-columns: minmax(0, 1fr) minmax(0, 1fr);
+  --discover-swipe: var(--discover-space-7);
+}
+
+@media (max-width: 768px) {
+  :root {
+    --discover-columns: minmax(0, 1fr);
+  }
+}
