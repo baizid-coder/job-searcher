@@ -83,6 +83,9 @@ def init() -> None:
                 "INSERT INTO profile (id, data) VALUES (1, ?)",
                 (json.dumps(DEFAULT_PROFILE),),
             )
+        from app.onboarding.migrate import apply
+
+        apply(connection)
 
 
 def _loads(value, fallback):
