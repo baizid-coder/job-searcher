@@ -22,6 +22,8 @@ BOARD_HOSTS = (
     "jobicy.com",
     "remoteok.com",
     "remotive.com",
+    "linkedin.com",
+    "lnkd.in",
 )
 
 

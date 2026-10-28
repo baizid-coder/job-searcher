@@ -1,3 +1,5 @@
+from urllib.parse import urlparse
+
 import httpx
 
 from app.match import _keywords
@@ -26,6 +28,17 @@ async def _read(client: httpx.AsyncClient, url: str) -> tuple[str, str]:
 
 def _readable(text: str) -> bool:
     return bool(text) and not looks_unreadable(text)
+
+
+def _off_linkedin(url: str) -> bool:
+    if not is_public_http(url):
+        return False
+    host = (urlparse(url).hostname or "").lower()
+    if host == "lnkd.in" or host.endswith(".lnkd.in"):
+        return False
+    if host == "linkedin.com" or host.endswith(".linkedin.com"):
+        return False
+    return True
 
 
 def _relevant(title: str, text: str) -> bool:
@@ -91,6 +104,10 @@ async def load_posting(job: dict) -> dict:
         official_url = board_url or company_url
         note = "The company page could not be read from here. This is the description from the job feed."
         text = f"{note}\n\n{description}".strip() if description else note
+    if source == "LinkedIn" and _off_linkedin(job.get("company_url") or ""):
+        company_url = job.get("company_url") or company_url
+        official_url = company_url
+        label = "Company page"
     return {
         "posting_text": text,
         "posting_label": label,

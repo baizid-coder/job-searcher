@@ -10,10 +10,11 @@ from pydantic import BaseModel, Field
 from app import db
 from app.cv import assemble_cv, extract_summary, template_documents, template_summary
 from app.llm import ModelError, build_documents, configured, complete, requirements_turn
-from app.match import query_keywords, rank_jobs, search_block_reason
+from app.match import query_keywords, rank_jobs, search_block_reason, select_visible
 from app.posting import _relevant, load_posting
 from app.resume import extract_pdf_text, parse_resume
 from app.sources import collect
+from app.sources.linkedin import extract_urls, fetch_jobs, looks_like_secret
 
 ROOT = Path(__file__).resolve().parent
 PAGE = ROOT / "static" / "index.html"
@@ -62,6 +63,10 @@ class DecideIn(BaseModel):
     status: str
     tailored_cv: str = ""
     cover_note: str = ""
+
+
+class LinkedInIn(BaseModel):
+    urls: str = Field(default="", max_length=8000)
 
 
 def _lead(job: dict) -> dict:
@@ -283,11 +288,14 @@ async def search(body: ProfileIn):
     if reason:
         raise HTTPException(status_code=400, detail=reason)
     jobs, warnings = await collect(query_keywords(profile))
-    ranked = rank_jobs(jobs, profile)[:25]
+    ranked = select_visible(rank_jobs(jobs, profile))
     warnings = list(warnings)
     sources_down = bool(warnings) and not ranked
     if not ranked and not warnings:
-        warnings.append("No listings shared a skill or a past title with this resume.")
+        if jobs:
+            warnings.append("No listings were left after your excluded terms and work-mode limits.")
+        else:
+            warnings.append("The job boards returned no listings.")
     if not sources_down:
         db.store_search(ranked)
     return {"matched": len(ranked), "warnings": warnings, "profile": profile, **_board()}
@@ -319,6 +327,27 @@ async def _posting_within(job: dict, seconds: float) -> dict | None:
         return await asyncio.wait_for(load_posting(job), timeout=seconds)
     except Exception:
         return None
+
+
+@app.post("/api/linkedin")
+async def import_linkedin(body: LinkedInIn):
+    pasted = body.urls or ""
+    if looks_like_secret(pasted):
+        raise HTTPException(
+            status_code=400,
+            detail="Paste LinkedIn job links only. This app does not take your LinkedIn password or session cookie.",
+        )
+    urls, warnings = extract_urls(pasted)
+    if not urls:
+        raise HTTPException(
+            status_code=400,
+            detail="Paste one or more LinkedIn job links. This app does not use your LinkedIn password.",
+        )
+    jobs, fetch_warnings = await fetch_jobs(urls)
+    warnings.extend(fetch_warnings)
+    if jobs:
+        db.upsert_imported(jobs)
+    return {"imported": len(jobs), "warnings": warnings, **_board()}
 
 
 @app.get("/api/jobs/{job_id}")
