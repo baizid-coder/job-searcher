@@ -1032,8 +1032,10 @@
       if (!(form instanceof HTMLFormElement)) return;
       event.preventDefault();
       const data = formData(form);
+      // An input named "id" shadows the form's id property, so read the attribute.
+      const formId = form.getAttribute("id") || "";
       try {
-        if (form.id === "program-form") {
+        if (formId === "program-form") {
           const payload = { ...data };
           delete payload.id;
           if (data.id) {
@@ -1047,30 +1049,30 @@
           }
           return;
         }
-        if (form.id === "import-form") {
+        if (formId === "import-form") {
           const created = await api("/api/masters/programs/import", { method: "POST", body: { url: data.url } });
           showBanner("Page fetched. Extracted fields are unverified.", true);
           await loadProgram(created.id);
           return;
         }
-        if (form.id === "filter-form") {
+        if (formId === "filter-form") {
           state.filters = data;
           await loadPrograms();
           return;
         }
-        if (form.id === "master-sop-form" || form.id === "master-proposal-form") {
-          const kind = form.id === "master-sop-form" ? "sop" : "research_proposal";
+        if (formId === "master-sop-form" || formId === "master-proposal-form") {
+          const kind = formId === "master-sop-form" ? "sop" : "research_proposal";
           await api("/api/masters/writing/master/" + kind, { method: "PUT", body: { body: data.body } });
           showBanner("Master text saved.", true);
           return;
         }
-        if (form.id === "deadline-form") {
+        if (formId === "deadline-form") {
           await api(`/api/masters/programs/${state.programId}/deadlines`, { method: "POST", body: data });
           showBanner("Deadline saved with in-app reminders at 30, 14, 7, 3, and 1 days.", true);
           await loadProgram(state.programId);
           return;
         }
-        if (form.id === "template-form") {
+        if (formId === "template-form") {
           await api(`/api/masters/programs/${state.programId}/checklist/apply`, { method: "POST", body: { template_id: Number(data.template_id) } });
           await loadProgram(state.programId);
           return;
@@ -1083,7 +1085,7 @@
           await loadProgram(state.programId);
           return;
         }
-        if (form.id === "checklist-form") {
+        if (formId === "checklist-form") {
           await api(`/api/masters/programs/${state.programId}/checklist`, {
             method: "POST",
             body: {
@@ -1102,7 +1104,7 @@
           await loadProgram(state.programId);
           return;
         }
-        if (form.id === "recommender-form") {
+        if (formId === "recommender-form") {
           let recommenderId = data.recommender_id;
           if (!recommenderId) {
             const created = await api("/api/masters/recommenders", { method: "POST", body: data });
@@ -1115,17 +1117,17 @@
           await loadProgram(state.programId);
           return;
         }
-        if (form.id === "professor-form") {
+        if (formId === "professor-form") {
           await api("/api/masters/professors", { method: "POST", body: { ...data, program_id: state.programId } });
           await loadProgram(state.programId);
           return;
         }
-        if (form.id === "cost-form") {
+        if (formId === "cost-form") {
           await api(`/api/masters/programs/${state.programId}/costs`, { method: "PUT", body: data });
           await loadProgram(state.programId);
           return;
         }
-        if (form.id === "upload-form") {
+        if (formId === "upload-form") {
           const body = new FormData();
           body.append("file", form.querySelector("[name=file]").files[0]);
           body.append("doc_type", data.doc_type);
@@ -1135,7 +1137,7 @@
           await loadVault();
           return;
         }
-        if (form.id === "scholarship-form") {
+        if (formId === "scholarship-form") {
           const selected = [...form.querySelector("[name=program_ids]").selectedOptions].map((option) => Number(option.value));
           await api("/api/masters/scholarships", {
             method: "POST",
@@ -1149,12 +1151,12 @@
           await loadScholarships();
           return;
         }
-        if (form.id === "test-form") {
+        if (formId === "test-form") {
           await api("/api/masters/tests", { method: "POST", body: data });
           await loadTests();
           return;
         }
-        if (form.id === "profile-form") {
+        if (formId === "profile-form") {
           await api("/api/masters/profile", {
             method: "PUT",
             body: {
