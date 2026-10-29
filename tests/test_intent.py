@@ -163,7 +163,7 @@ class ChatFlowTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(body["profile"]["titles"], ["Support Officer"])
         self.assertIn("Django", body["profile"]["must_have"])
 
-        with patch("app.main.collect", fake_collect):
+        with patch("app.feeds.collect", fake_collect):
             found = self.client.post("/api/search", json=body["profile"])
         self.assertEqual(found.status_code, 200, found.text)
         payload = found.json()
