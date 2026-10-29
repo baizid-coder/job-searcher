@@ -114,6 +114,8 @@
     dialog { border: 0; border-radius: 18px; padding: 20px; width: min(480px, calc(100% - 24px)); }
     dialog::backdrop { background: rgba(30, 26, 22, 0.4); }
     #results { margin: 22px 0 48px; }
+    .feed-toggle { margin-top: 8px; color: var(--ink); font-size: 15px; }
+    .feed-toggle input { width: auto; margin: 0; }
     @media (max-width: 800px) {
       .top, .review-grid { grid-template-columns: 1fr; }
       h1 { font-size: 32px; }
@@ -198,6 +200,11 @@
         <h2>Leads</h2>
         <p id="match-count" class="meta"></p>
       </div>
+      <label class="row feed-toggle">
+        <input id="auto-refresh" type="checkbox" checked>
+        <span>Refresh job feeds every <span id="feed-hours">8</span> hours</span>
+      </label>
+      <p id="feed-status" class="hint"></p>
       <div id="warnings"></div>
       <div id="leads"></div>
       <h2 style="margin-top: 28px;">Applied</h2>
@@ -491,6 +498,52 @@
       for (const job of jobs) element.append(renderJob(job, openJob));
     }
 
+    function formatWhen(iso) {
+      if (!iso) return "";
+      const date = new Date(iso);
+      if (Number.isNaN(date.getTime())) return "";
+      return date.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
+    }
+
+    function showFeedStatus(feeds) {
+      if (!feeds) return;
+      const hours = feeds.interval_hours || 8;
+      $("feed-hours").textContent = String(hours);
+      $("auto-refresh").checked = Boolean(feeds.auto_refresh);
+      const line = $("feed-status");
+      if (!feeds.auto_refresh) {
+        line.textContent = "Off. Job feeds will not refresh on their own. Leads already here stay, and Search still adds jobs.";
+        return;
+      }
+      const last = formatWhen(feeds.last_refresh_at);
+      const next = formatWhen(feeds.next_refresh_at);
+      if (!last) {
+        line.textContent = "On. The next refresh runs soon while this app is open. New listings are added, and leads already here stay.";
+        return;
+      }
+      const added = feeds.last_added;
+      let addedText = "";
+      if (added === 0) addedText = " No new listings.";
+      else if (added === 1) addedText = " 1 new listing.";
+      else if (typeof added === "number") addedText = " " + added + " new listings.";
+      let text = "On. Last refresh " + last + "." + addedText;
+      if (next) text += " Next around " + next + ".";
+      text += " Leads already here stay.";
+      line.textContent = text;
+    }
+
+    let boardSig = "";
+
+    function boardSignature(data) {
+      const parts = [];
+      for (const key of ["leads", "applied", "skipped"]) {
+        for (const job of data[key] || []) parts.push([job.id, job.status, job.score].join(":"));
+      }
+      const feeds = data.feeds || {};
+      parts.push(String(Boolean(feeds.auto_refresh)), feeds.last_refresh_at || "", String(feeds.last_added));
+      return parts.join("|");
+    }
+
     function renderBoard(data) {
       renderList($("leads"), data.leads || [], "No leads yet. Paste a resume and search.");
       renderList($("applied"), data.applied || [], "Jobs you mark Apply show up here.");
@@ -498,18 +551,33 @@
       $("show-skipped").textContent = "Show skipped (" + (data.skipped_count || 0) + ")";
       if (typeof data.matched === "number") {
         const seeking = (data.profile && data.profile.seeking) || [];
-        $("match-count").textContent = seeking.length
+        let text = seeking.length
           ? data.matched + " matched " + seeking.join(", ")
           : data.matched + " matched this search";
+        if (typeof data.added === "number") {
+          text += data.added === 1 ? " · 1 new" : " · " + data.added + " new";
+        }
+        $("match-count").textContent = text;
       }
-      const warnings = $("warnings");
-      warnings.replaceChildren();
-      for (const warning of data.warnings || []) {
-        const item = document.createElement("p");
-        item.className = "hint";
-        item.textContent = warning;
-        warnings.append(item);
+      if (Array.isArray(data.warnings)) {
+        const warnings = $("warnings");
+        warnings.replaceChildren();
+        for (const warning of data.warnings) {
+          const item = document.createElement("p");
+          item.className = "hint";
+          item.textContent = warning;
+          warnings.append(item);
+        }
       }
+      if (data.feeds) showFeedStatus(data.feeds);
+      boardSig = boardSignature(data);
+    }
+
+    async function pullLatest() {
+      if ($("auto-refresh").disabled) return;
+      const data = await api("/api/state");
+      if (boardSignature(data) === boardSig) return;
+      renderBoard(data);
     }
 
     function showHome() {
@@ -729,6 +797,24 @@
       }
     });
 
+    $("auto-refresh").addEventListener("change", async () => {
+      const box = $("auto-refresh");
+      const wanted = box.checked;
+      box.disabled = true;
+      try {
+        showFeedStatus(await api("/api/feeds", {
+          method: "PUT",
+          body: JSON.stringify({ auto_refresh: wanted }),
+        }));
+        boardSig = "";
+      } catch (error) {
+        box.checked = !wanted;
+        showError(error);
+      } finally {
+        box.disabled = false;
+      }
+    });
+
     $("show-skipped").addEventListener("click", () => {
       $("skipped").hidden = !$("skipped").hidden;
     });
@@ -795,7 +881,15 @@
       }
     });
 
-    load().catch(showError);
+    load().then(() => {
+      setInterval(() => {
+        if (document.hidden) return;
+        pullLatest().catch(() => {});
+      }, 60000);
+      document.addEventListener("visibilitychange", () => {
+        if (!document.hidden) pullLatest().catch(() => {});
+      });
+    }).catch(showError);
   </script>
 </body>
 </html>

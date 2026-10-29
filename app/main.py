@@ -1,6 +1,6 @@
 import asyncio
 import json
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
 from pathlib import Path
 
 from fastapi import FastAPI, File, HTTPException, UploadFile
@@ -9,11 +9,11 @@ from pydantic import BaseModel, Field
 
 from app import db
 from app.cv import assemble_cv, extract_summary, template_documents, template_summary
+from app.feeds import collect_and_store, feed_loop, public_feed_status
 from app.llm import NO_MODEL, ModelError, build_documents, configured, complete, requirements_turn
 from app.match import query_keywords, rank_jobs, search_block_reason, select_visible
 from app.posting import _relevant, load_posting
 from app.resume import extract_pdf_text, parse_resume
-from app.sources import collect
 from app.sources.linkedin import extract_urls, fetch_jobs, looks_like_secret
 
 ROOT = Path(__file__).resolve().parent
@@ -25,7 +25,15 @@ PDF_CONTENT_TYPES = {"", "application/pdf", "application/x-pdf", "application/oc
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     db.init()
-    yield
+    stop = asyncio.Event()
+    task = asyncio.create_task(feed_loop(stop), name="job-feed-refresh")
+    try:
+        yield
+    finally:
+        stop.set()
+        task.cancel()
+        with suppress(asyncio.CancelledError):
+            await task
 
 
 app = FastAPI(title="Job finder", lifespan=lifespan)
@@ -70,6 +78,10 @@ class LinkedInIn(BaseModel):
     urls: str = Field(default="", max_length=8000)
 
 
+class FeedIn(BaseModel):
+    auto_refresh: bool
+
+
 def _lead(job: dict) -> dict:
     return {
         "id": job["id"],
@@ -99,6 +111,10 @@ def _board() -> dict:
 
 def _same_terms(left, right) -> bool:
     return [item.lower() for item in db.split_terms(left)] == [item.lower() for item in db.split_terms(right)]
+
+
+def _view() -> dict:
+    return {**_board(), "feeds": public_feed_status()}
 
 
 def _chat_patch(patch: dict, previous: dict | None = None) -> dict:
@@ -136,7 +152,7 @@ def state():
         "profile": db.get_profile(),
         "settings": db.public_settings(),
         "messages": db.list_messages(30),
-        **_board(),
+        **_view(),
     }
 
 
@@ -295,27 +311,32 @@ async def chat(body: ChatIn):
     return {"reply": reply, "configured": True, "profile": profile, "messages": db.list_messages(30)}
 
 
+@app.put("/api/feeds")
+def update_feeds(body: FeedIn):
+    db.set_auto_refresh(body.auto_refresh)
+    return public_feed_status()
+
+
 @app.post("/api/search")
 async def search(body: ProfileIn):
     profile = db.save_profile(_fill_blanks_from_resume(body.model_dump()))
     reason = search_block_reason(profile)
     if reason:
         raise HTTPException(status_code=400, detail=reason)
-    jobs, warnings = await collect(query_keywords(profile))
-    ranked = select_visible(rank_jobs(jobs, profile))
-    warnings = list(warnings)
-    sources_down = bool(warnings) and not ranked
-    if not ranked and not warnings:
+    result = await collect_and_store(profile)
+    # Enhance empty result warnings with seeking-specific message
+    warnings = result["warnings"]
+    if result["matched"] == 0 and not warnings:
         sought = db.split_terms(profile.get("seeking"))
-        if sought and jobs:
-            warnings.append("No listings matched " + ", ".join(sought[:4]) + ".")
-        elif jobs:
-            warnings.append("No listings were left after your excluded terms and work-mode limits.")
-        else:
-            warnings.append("The job boards returned no listings.")
-    if not sources_down:
-        db.store_search(ranked)
-    return {"matched": len(ranked), "warnings": warnings, "profile": profile, **_board()}
+        if sought:
+            warnings = ["No listings matched " + ", ".join(sought[:4]) + "."]
+    return {
+        "matched": result["matched"],
+        "added": result["added"],
+        "warnings": warnings,
+        "profile": profile,
+        **_view(),
+    }
 
 
 def _needs_cv(job: dict) -> bool:
@@ -364,7 +385,7 @@ async def import_linkedin(body: LinkedInIn):
     warnings.extend(fetch_warnings)
     if jobs:
         db.upsert_imported(jobs)
-    return {"imported": len(jobs), "warnings": warnings, **_board()}
+    return {"imported": len(jobs), "warnings": warnings, **_view()}
 
 
 @app.get("/api/jobs/{job_id}")
@@ -435,4 +456,4 @@ def decide(job_id: str, body: DecideIn):
     )
     if updated is None:
         raise HTTPException(status_code=404, detail="That lead is no longer here.")
-    return {"job": updated, **_board()}
+    return {"job": updated, **_view()}
