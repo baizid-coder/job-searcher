@@ -17,22 +17,39 @@ Open http://127.0.0.1:8000
 
 ### One-Click Presets
 
-The app includes preset models from free providers - no typing of base URLs or model names needed!
+The app includes preset models from two providers - no typing of base URLs or model names needed!
 
-- **Groq** (recommended) - Llama 3.3 70B, Llama 3.1 70B, Mixtral 8x7B
-- **OpenRouter** - Gemini 2.0 Flash (Free), Gemini 1.5 Flash, Llama 3.2 3B (Free)  
-- **Google Gemini** - Gemini 2.0 Flash, Gemini 1.5 Flash
+**Groq (Default, Free & Fast)**
+- Llama 3.3 70B Versatile ⭐ (default)
+- Llama 3.1 70B Versatile
+- Mixtral 8x7B
+
+**OpenRouter (Backup, Multiple Models)**
+- Gemini 2.5 Flash Preview
+- GPT-4o Mini
+- Gemini 2.0 Flash (Free)
+- Gemini 1.5 Flash (Free)
+- Llama 3.2 3B (Free)
 
 **Setup:**
 
 1. Get an API key from your chosen provider:
-   - **Groq** (fast & free): https://console.groq.com/
-   - **OpenRouter**: https://openrouter.ai/keys
-   - **Google Gemini**: https://aistudio.google.com/app/apikey
+   - **Groq** (recommended): https://console.groq.com/
+   - **OpenRouter** (backup): https://openrouter.ai/keys
 
-2. Open Settings (gear icon), select a preset from the dropdown, paste your API key, and click "Save settings"
+2. **Option A - Settings UI:**
+   - Open Settings (gear icon)
+   - Select a preset from the dropdown
+   - Paste your API key
+   - Click "Save settings"
 
-3. Your key is saved locally in the app's database (never committed to git)
+3. **Option B - Environment Variables:**
+   ```bash
+   export GROQ_API_KEY="your-groq-key"
+   export OPENROUTER_API_KEY="your-openrouter-key"
+   ```
+
+Your key is saved locally in the app's database or read from environment variables (never committed to git)
 
 ### Custom Models
 

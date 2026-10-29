@@ -2,7 +2,7 @@
 
 ## Overview
 
-Added a one-click model picker that eliminates the need for users to manually enter base URLs and model names. Users can now select from preset free models and paste their API key once, or choose "Advanced / Custom" for Ollama and other endpoints.
+Added a one-click model picker with dual-provider support (Groq + OpenRouter) that eliminates the need for users to manually enter base URLs and model names. Users can select from preset models and paste their API key once, or use environment variables. "Advanced / Custom" mode remains available for Ollama and other endpoints.
 
 ---
 
@@ -12,30 +12,40 @@ Added a one-click model picker that eliminates the need for users to manually en
 
 **File:** `app/model_presets.py`
 
-Provides preset configurations for three providers:
+Provides preset configurations for two primary providers:
 
-**Groq (Default, Free)**
+**Groq (Default, Free & Fast)**
 - Llama 3.3 70B Versatile ⭐ **Default**
 - Llama 3.1 70B Versatile
 - Mixtral 8x7B
 
-**OpenRouter (Free)**
+**OpenRouter (Backup, Multiple Models)**
+- Gemini 2.5 Flash Preview (paid)
+- GPT-4o Mini (paid)
 - Gemini 2.0 Flash (Free)
-- Gemini 1.5 Flash
+- Gemini 1.5 Flash (Free)
 - Llama 3.2 3B (Free)
 
-**Google Gemini (Free)**
-- Gemini 2.0 Flash
-- Gemini 1.5 Flash
+### 2. Hybrid API Key Management
 
-### 2. API Key Storage
+API keys can be supplied via **environment variables** OR **Settings UI**:
 
-API keys are entered by users in the Settings UI and stored locally in the SQLite database:
+**Option A - Environment Variables (Recommended for server deployments):**
+```bash
+export GROQ_API_KEY="your-groq-key"
+export OPENROUTER_API_KEY="your-openrouter-key"
+```
+
+**Option B - Settings UI (Recommended for personal use):**
+- Enter key once in Settings
+- Saved locally in SQLite database
+- Never committed to repo
+
+**Priority:** Environment variables are checked first, then saved keys.
 
 - ✅ **No typing** of base URLs or model names for presets
-- ✅ **One-time entry** of API key per provider
-- ✅ **Saved locally** in the app's database (never committed to repo)
-- ✅ **Key hint** shown (last 4 characters) after saving
+- ✅ **Flexible** key management (env vars OR UI entry)
+- ✅ **Key hint** shown (e.g., "env:GROQ_API_KEY" or "····sk_1234")
 
 ### 3. Database Changes
 
@@ -110,19 +120,37 @@ Added section explaining:
 
 ## How API Keys Are Supplied
 
-### For Personal Use (Recommended)
+### Dual Provider Setup (Groq + OpenRouter)
 
-1. **Get an API key** from your chosen provider:
-   - **Groq** (recommended, fast & free): https://console.groq.com/
-   - **OpenRouter** (free models available): https://openrouter.ai/keys
-   - **Google Gemini** (free with quota): https://aistudio.google.com/app/apikey
+The owner has accounts with both Groq (default) and OpenRouter (backup). Keys can be supplied two ways:
 
-2. **Enter it once** in Settings:
-   - Open Settings
-   - Select a preset (e.g., "Groq - Llama 3.3 70B Versatile")
-   - Paste your API key in the API key field
+### Option A - Environment Variables
+
+```bash
+export GROQ_API_KEY="your-groq-key"
+export OPENROUTER_API_KEY="your-openrouter-key"
+uvicorn app.main:app
+```
+
+**Best for:** Server deployments, consistent keys across sessions
+
+### Option B - Settings UI
+
+1. **Get API keys:**
+   - **Groq** (default, fast & free): https://console.groq.com/
+   - **OpenRouter** (backup, multiple models): https://openrouter.ai/keys
+
+2. **Enter in Settings:**
+   - Open Settings (gear icon)
+   - Select a Groq preset (e.g., "Llama 3.3 70B Versatile")
+   - Paste your Groq API key
    - Click "Save settings"
-   - Done! The key is saved locally on your PC.
+   
+   OR
+   
+   - Select an OpenRouter preset (e.g., "Gemini 2.5 Flash Preview" or "GPT-4o Mini")
+   - Paste your OpenRouter API key
+   - Click "Save settings"
 
 3. **For advanced/custom endpoints** (Ollama, etc.):
    - Choose "Advanced / Custom (Ollama, etc.)"
@@ -130,35 +158,47 @@ Added section explaining:
    - Optionally enter API key (if needed)
    - Click "Save settings"
 
+**Best for:** Personal use, per-user keys
+
+### Priority Order
+
+1. **Environment variable** (GROQ_API_KEY or OPENROUTER_API_KEY) - checked first
+2. **Saved key** from Settings UI - used if no env var
+
 ### No Keys Committed
 
 - ✅ No API keys in code
-- ✅ API keys only in local database (not in repo)
-- ✅ Keys never committed to git
-- ✅ Safe for personal use
+- ✅ Environment variables never committed
+- ✅ Database keys stored locally only (not in repo)
+- ✅ `.gitignore` protects `.env` files and `jobfinder.db`
+- ✅ Safe for both personal use and deployments
 
 ---
 
 ## Available Presets
 
-### Groq ⭐ Default
+### Groq ⭐ Default Provider
 - **Base URL:** https://api.groq.com/openai/v1
-- **Models:** Llama 3.3 70B, Llama 3.1 70B, Mixtral 8x7B
-- **Free:** Yes
+- **Models:**
+  - Llama 3.3 70B Versatile (default)
+  - Llama 3.1 70B Versatile
+  - Mixtral 8x7B
+- **Free:** Yes, all models
 - **Speed:** Very fast
 - **Get Key:** https://console.groq.com/
+- **Env Var:** `GROQ_API_KEY`
 
-### OpenRouter
+### OpenRouter 🔄 Backup Provider
 - **Base URL:** https://openrouter.ai/api/v1
-- **Models:** Gemini 2.0 Flash (Free), Gemini 1.5 Flash, Llama 3.2 3B (Free)
-- **Free:** Yes (selected models)
+- **Paid Models:**
+  - Gemini 2.5 Flash Preview (high quality)
+  - GPT-4o Mini (OpenAI)
+- **Free Models:**
+  - Gemini 2.0 Flash (Free)
+  - Gemini 1.5 Flash (Free)
+  - Llama 3.2 3B (Free)
 - **Get Key:** https://openrouter.ai/keys
-
-### Google Gemini
-- **Base URL:** https://generativelanguage.googleapis.com/v1beta/openai
-- **Models:** Gemini 2.0 Flash, Gemini 1.5 Flash
-- **Free:** Yes (with quota)
-- **Get Key:** https://aistudio.google.com/app/apikey
+- **Env Var:** `OPENROUTER_API_KEY`
 
 ---
 

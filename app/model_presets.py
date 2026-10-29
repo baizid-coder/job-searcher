@@ -4,13 +4,15 @@ import os
 from typing import Any
 
 # Provider configurations with their endpoints and available models
+# Keys can be supplied via environment variables (GROQ_API_KEY, OPENROUTER_API_KEY)
+# or entered in Settings UI and saved to local database
 PROVIDERS = {
     "groq": {
         "name": "Groq",
         "base_url": "https://api.groq.com/openai/v1",
         "env_key": "GROQ_API_KEY",
         "models": [
-            {"id": "llama-3.3-70b-versatile", "name": "Llama 3.3 70B Versatile", "free": True},
+            {"id": "llama-3.3-70b-versatile", "name": "Llama 3.3 70B Versatile", "free": True, "default": True},
             {"id": "llama-3.1-70b-versatile", "name": "Llama 3.1 70B Versatile", "free": True},
             {"id": "mixtral-8x7b-32768", "name": "Mixtral 8x7B", "free": True},
         ],
@@ -20,18 +22,13 @@ PROVIDERS = {
         "base_url": "https://openrouter.ai/api/v1",
         "env_key": "OPENROUTER_API_KEY",
         "models": [
+            # Paid models (high quality)
+            {"id": "google/gemini-2.5-flash-preview", "name": "Gemini 2.5 Flash Preview", "free": False},
+            {"id": "openai/gpt-4o-mini", "name": "GPT-4o Mini", "free": False},
+            # Free models
             {"id": "google/gemini-2.0-flash-exp:free", "name": "Gemini 2.0 Flash (Free)", "free": True},
             {"id": "google/gemini-flash-1.5", "name": "Gemini 1.5 Flash", "free": True},
             {"id": "meta-llama/llama-3.2-3b-instruct:free", "name": "Llama 3.2 3B (Free)", "free": True},
-        ],
-    },
-    "gemini": {
-        "name": "Google Gemini",
-        "base_url": "https://generativelanguage.googleapis.com/v1beta/openai",
-        "env_key": "GEMINI_API_KEY",
-        "models": [
-            {"id": "gemini-2.0-flash-exp", "name": "Gemini 2.0 Flash", "free": True},
-            {"id": "gemini-1.5-flash", "name": "Gemini 1.5 Flash", "free": True},
         ],
     },
 }

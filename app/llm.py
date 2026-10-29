@@ -75,13 +75,19 @@ def _connection_refused(exc: BaseException) -> bool:
 
 
 def configured(settings: dict) -> bool:
-    """Check if model is configured (either preset or custom)."""
-    # Need base_url, model, and api_key for both preset and custom
-    return bool(
-        settings.get("base_url") 
-        and settings.get("model")
-        and settings.get("api_key")
-    )
+    """Check if model is configured (either preset or custom).
+    
+    Checks for base_url, model, and effective API key (from env var or saved).
+    """
+    if not (settings.get("base_url") and settings.get("model")):
+        return False
+    
+    # Check for API key (env var or saved)
+    if settings.get("use_preset"):
+        from app.db import get_effective_api_key
+        return bool(get_effective_api_key(settings, settings.get("preset_provider", "")))
+    else:
+        return bool(settings.get("api_key"))
 
 
 def _endpoint(base_url: str) -> str:
@@ -115,9 +121,15 @@ async def complete(settings: dict, messages: list[dict], timeout: float | None =
         raise ModelError(NO_MODEL)
     headers = {"Content-Type": "application/json"}
     
-    # Get API key from settings (works for both preset and advanced mode)
-    if settings.get("api_key"):
-        headers["Authorization"] = f"Bearer {settings['api_key']}"
+    # Get effective API key (from env var or saved settings)
+    if settings.get("use_preset"):
+        from app.db import get_effective_api_key
+        api_key = get_effective_api_key(settings, settings.get("preset_provider", ""))
+    else:
+        api_key = settings.get("api_key", "")
+    
+    if api_key:
+        headers["Authorization"] = f"Bearer {api_key}"
     
     payload = {
         "model": settings["model"],

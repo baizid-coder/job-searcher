@@ -166,14 +166,34 @@ def get_settings() -> dict:
     }
 
 
+def get_effective_api_key(settings: dict, provider_id: str = "") -> str:
+    """Get API key from environment variables or saved settings.
+    
+    Checks environment variable first (GROQ_API_KEY, OPENROUTER_API_KEY),
+    then falls back to saved key in database.
+    """
+    import os
+    
+    # Try environment variable first if using preset
+    if provider_id:
+        from app import model_presets
+        provider_config = model_presets.PROVIDERS.get(provider_id)
+        if provider_config:
+            env_key = os.environ.get(provider_config["env_key"], "").strip()
+            if env_key:
+                return env_key
+    
+    # Fall back to saved key
+    return settings.get("api_key", "")
+
+
 def public_settings() -> dict:
     from app import model_presets
     
     settings = get_settings()
     use_preset = settings.get("use_preset", False)
-    key = settings.get("api_key", "")
     
-    # If using preset, resolve it and combine with user's key
+    # If using preset, resolve it and check for key (env var or saved)
     if use_preset:
         provider_id = settings.get("preset_provider", "")
         model_id = settings.get("preset_model", "")
@@ -181,8 +201,23 @@ def public_settings() -> dict:
         if provider_id and model_id:
             resolved = model_presets.resolve_preset(provider_id, model_id)
             if resolved:
-                # Preset resolved, check if user has entered a key
-                ready = bool(key)
+                # Check for key from env var or saved settings
+                effective_key = get_effective_api_key(settings, provider_id)
+                ready = bool(effective_key)
+                
+                # Show hint based on key source
+                key_hint = ""
+                if ready:
+                    import os
+                    provider_config = model_presets.PROVIDERS.get(provider_id)
+                    env_var_name = provider_config["env_key"] if provider_config else ""
+                    if os.environ.get(env_var_name, "").strip():
+                        key_hint = f"env:{env_var_name}"
+                    elif len(effective_key) >= 4:
+                        key_hint = f"····{effective_key[-4:]}"
+                    else:
+                        key_hint = "saved"
+                
                 note = ""
                 if not ready:
                     from app.llm import NO_MODEL
@@ -194,8 +229,8 @@ def public_settings() -> dict:
                     "preset_model": model_id,
                     "base_url": resolved["base_url"],
                     "model": resolved["model"],
-                    "has_key": bool(key),
-                    "key_hint": f"····{key[-4:]}" if len(key) >= 4 else ("saved" if key else ""),
+                    "has_key": ready,
+                    "key_hint": key_hint,
                     "configured": ready,
                     "model_note": note,
                 }
@@ -203,7 +238,8 @@ def public_settings() -> dict:
     # Using advanced/custom settings or no preset selected
     base_url = settings.get("base_url", "")
     model = settings.get("model", "")
-    ready = bool(base_url and model and key)
+    saved_key = settings.get("api_key", "")
+    ready = bool(base_url and model and saved_key)
     note = ""
     if not ready:
         from app.llm import NO_MODEL
@@ -215,8 +251,8 @@ def public_settings() -> dict:
         "preset_model": "",
         "base_url": base_url,
         "model": model,
-        "has_key": bool(key),
-        "key_hint": f"····{key[-4:]}" if len(key) >= 4 else ("saved" if key else ""),
+        "has_key": bool(saved_key),
+        "key_hint": f"····{saved_key[-4:]}" if len(saved_key) >= 4 else ("saved" if saved_key else ""),
         "configured": ready,
         "model_note": note,
     }
