@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>My Profile · Job finder</title>
+  <link rel="stylesheet" href="/profile/discover-tokens.css">
+  <link rel="stylesheet" href="/profile/onboarding.css">
+</head>
+<body>
+  <main class="page section-gap">
+    <header class="header">
+      <div class="stack">
+        <p class="kicker">Job finder</p>
+        <h1>My Profile</h1>
+        <p class="muted" id="status-line">Preference profile</p>
+      </div>
+      <nav class="row" aria-label="Pages">
+        <a href="/">Job finder</a>
+        <a href="/onboarding">Onboarding</a>
+      </nav>
+    </header>
+    <p id="boot-loading">Loading profile…</p>
+    <div id="boot-error" class="notice error" hidden role="alert"></div>
+    <div id="app" class="split" hidden>
+      <section class="section-gap">
+        <div id="empty" class="notice" hidden>
+          <p>No preference profile yet.</p>
+          <p><a href="/onboarding">Start onboarding</a></p>
+        </div>
+        <div id="fields" class="stack"></div>
+      </section>
+      <section class="section-gap">
+        <article class="card stack">
+          <h2>Actions</h2>
+          <p id="gate-copy" class="muted"></p>
+          <label class="field">Feature flag
+            <select id="override">
+              <option value="">Automatic — wait until the profile is stable</option>
+              <option value="allow">Allow before the profile is stable</option>
+              <option value="deny">Keep matching and tailoring off</option>
+            </select>
+          </label>
+          <button type="button" id="save-gate">Save flag</button>
+          <div class="actions">
+            <button type="button" data-action="match">Check matching</button>
+            <button type="button" data-action="resume-tailor">Check resume tailoring</button>
+            <button type="button" data-action="auto-prepare">Check auto-prepared applications</button>
+          </div>
+          <div id="gate-result" class="notice" hidden role="status"></div>
+          <p class="muted">These checks do not apply to a job and do not edit a resume.</p>
+        </article>
+        <article class="card stack">
+          <h2>Version history</h2>
+          <div id="history-empty" class="muted" hidden>No versions yet.</div>
+          <div id="history" class="stack"></div>
+        </article>
+      </section>
+    </div>
+  </main>
+  <noscript><p>My Profile needs JavaScript to load your preference profile.</p></noscript>
+  <script src="/profile/profile.js"></script>
+</body>
+</html>

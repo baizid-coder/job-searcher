@@ -1,0 +1,62 @@
+=== API Response Samples ===
+
+1. STATE ENDPOINT (shows all integrated features)
+Endpoint: GET /api/state
+
+Profile includes seeking field (PR #3):
+  "seeking": ["Junior Python Developer"]
+
+Settings include model state (PR #4):
+  "configured": false
+  "model_note": "Chat and a model-written CV need a model..."
+
+Feeds include 8-hour refresh (PR #2):
+  "feeds": {
+    "auto_refresh": true,
+    "interval_hours": 8
+  }
+
+2. DISCOVER ENDPOINT (PR #6)
+Endpoint: GET /api/discover
+
+Sample job posting:
+  "posting_id": "himalayas-usa-data-analyst-ii"
+  "title": "(USA) Data Analyst II"
+  "company": "Walmart - Internal"
+  "role_family": "data_analyst"
+  "skills": ["machine learning", "power bi", "tableau", "python"]
+
+3. ONBOARDING ENDPOINT (PR #7)
+Endpoint: GET /api/onboarding/state
+
+Gate system:
+  "gate": {
+    "stable": false,
+    "entry_allowed": false,
+    "reason": "not_stable",
+    "detail": "Matching, resume tailoring, and auto-prepared applications stay off until the preference profile is stable."
+  }
+
+4. MASTERS DASHBOARD (PR #5)
+Endpoint: GET /api/masters/dashboard
+
+Returns:
+  "programs": []
+  "reminders": []
+
+5. SEARCH WITH SEEKING (PR #3 + PR #2)
+Endpoint: POST /api/search
+
+Response includes:
+  "matched": 0
+  "added": 0  <-- from PR #2
+  "profile": {
+    "seeking": ["Junior Python Developer"]  <-- from PR #3
+  }
+
+6. CHAT WITHOUT MODEL (PR #4)
+Endpoint: POST /api/chat
+
+Response:
+  "reply": "Chat and a model-written CV need a model..."
+  "configured": false  <-- honest empty state
