@@ -281,6 +281,8 @@ async def upload_resume_pdf(file: UploadFile = File(...)):
 class PresetIn(BaseModel):
     provider_id: str
     model_id: str
+    api_key: str | None = None
+    clear_key: bool = False
 
 
 @app.get("/api/presets")
@@ -296,7 +298,7 @@ def save_settings(body: SettingsIn):
 
 @app.put("/api/settings/preset")
 def save_preset(body: PresetIn):
-    return db.save_preset_settings(body.provider_id, body.model_id)
+    return db.save_preset_settings(body.provider_id, body.model_id, body.api_key, body.clear_key)
 
 
 @app.post("/api/settings/test")

@@ -265,13 +265,13 @@
       </label>
       <p id="preset-note" class="hint" hidden></p>
       <div id="advanced-settings" hidden>
-        <p class="hint">Ollama: base URL http://127.0.0.1:11434/v1 and the model you pulled. A hosted model also needs an API key. It stays on this PC.</p>
+        <p class="hint">Custom endpoint: enter base URL and model name below.</p>
         <label>Base URL <input id="base-url" placeholder="http://127.0.0.1:11434/v1"></label>
         <label>Model <input id="model" placeholder="llama3.2"></label>
-        <label>API key <input id="api-key" type="password" autocomplete="off"></label>
-        <label class="row"><input id="clear-key" type="checkbox" style="width: auto;"> Clear the saved key</label>
-        <p id="key-hint" class="hint"></p>
       </div>
+      <label>API key <input id="api-key" type="password" autocomplete="off" placeholder="Paste your API key here"></label>
+      <label class="row"><input id="clear-key" type="checkbox" style="width: auto;"> Clear the saved key</label>
+      <p id="key-hint" class="hint"></p>
       <div class="row">
         <button type="submit">Save settings</button>
         <button id="test-model" class="secondary" type="button">Check connection</button>
@@ -886,10 +886,6 @@
           const option = document.createElement("option");
           option.value = JSON.stringify({provider_id: preset.provider_id, model_id: preset.model_id});
           option.textContent = preset.model_name + (preset.free ? " (Free)" : "");
-          option.disabled = !preset.available;
-          if (!preset.available && preset.unavailable_reason) {
-            option.textContent += " - " + preset.unavailable_reason;
-          }
           optgroup.appendChild(option);
         });
         picker.appendChild(optgroup);
@@ -912,15 +908,8 @@
         const value = JSON.stringify({provider_id: settings.preset_provider, model_id: settings.preset_model});
         picker.value = value;
         advancedDiv.hidden = true;
-        
-        // Show note if configured
-        if (settings.configured) {
-          presetNote.hidden = false;
-          presetNote.textContent = "Using " + settings.model + " from preset. No API key needed in the UI.";
-        } else {
-          presetNote.hidden = false;
-          presetNote.textContent = settings.model_note || "Preset not available.";
-        }
+        presetNote.hidden = false;
+        presetNote.textContent = "Preset fills base URL and model automatically. Paste your " + settings.preset_provider.toUpperCase() + " API key above.";
       } else {
         // Advanced mode
         picker.value = "advanced";
@@ -929,8 +918,9 @@
         
         $("base-url").value = settings.base_url || "";
         $("model").value = settings.model || "";
-        $("key-hint").textContent = settings.has_key ? "A key is saved (" + settings.key_hint + ")." : "No key saved.";
       }
+      
+      $("key-hint").textContent = settings.has_key ? "A key is saved (" + settings.key_hint + ")." : "No key saved.";
     }
     
     $("model-picker").addEventListener("change", () => {
@@ -944,7 +934,8 @@
       } else {
         advancedDiv.hidden = true;
         presetNote.hidden = false;
-        presetNote.textContent = "This preset uses a server-side API key. No manual entry needed.";
+        const preset = JSON.parse(picker.value);
+        presetNote.textContent = "Preset fills base URL and model automatically. Paste your " + preset.provider_id.toUpperCase() + " API key above.";
       }
     });
 
@@ -966,23 +957,27 @@
       
       try {
         let settings;
+        const payload = {
+          clear_key: $("clear-key").checked,
+        };
+        if ($("api-key").value) payload.api_key = $("api-key").value;
+        
         if (picker.value === "advanced") {
           // Save advanced settings
-          const payload = {
-            base_url: $("base-url").value,
-            model: $("model").value,
-            clear_key: $("clear-key").checked,
-          };
-          if ($("api-key").value) payload.api_key = $("api-key").value;
+          payload.base_url = $("base-url").value;
+          payload.model = $("model").value;
           settings = await api("/api/settings", { method: "PUT", body: JSON.stringify(payload) });
-          $("api-key").value = "";
-          $("clear-key").checked = false;
-          $("key-hint").textContent = settings.has_key ? "A key is saved (" + settings.key_hint + ")." : "No key saved.";
         } else {
-          // Save preset
+          // Save preset with API key
           const preset = JSON.parse(picker.value);
-          settings = await api("/api/settings/preset", { method: "PUT", body: JSON.stringify(preset) });
+          payload.provider_id = preset.provider_id;
+          payload.model_id = preset.model_id;
+          settings = await api("/api/settings/preset", { method: "PUT", body: JSON.stringify(payload) });
         }
+        
+        $("api-key").value = "";
+        $("clear-key").checked = false;
+        $("key-hint").textContent = settings.has_key ? "A key is saved (" + settings.key_hint + ")." : "No key saved.";
         await testSavedModel();
       } catch (error) {
         setModelStatus(errorText(error), "bad");

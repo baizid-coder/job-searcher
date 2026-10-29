@@ -38,13 +38,9 @@ PROVIDERS = {
 
 
 def get_presets() -> list[dict[str, Any]]:
-    """Return list of model presets grouped by provider with availability status."""
+    """Return list of model presets grouped by provider."""
     presets = []
     for provider_id, provider_config in PROVIDERS.items():
-        env_key = provider_config["env_key"]
-        api_key = os.environ.get(env_key, "").strip()
-        available = bool(api_key)
-        
         for model in provider_config["models"]:
             presets.append({
                 "provider_id": provider_id,
@@ -52,26 +48,22 @@ def get_presets() -> list[dict[str, Any]]:
                 "model_id": model["id"],
                 "model_name": model["name"],
                 "free": model.get("free", False),
-                "available": available,
-                "unavailable_reason": None if available else f"Set {env_key} environment variable",
             })
     
     return presets
 
 
-def get_default_preset() -> dict[str, str] | None:
-    """Return the default preset (first available free model) or None."""
-    for preset in get_presets():
-        if preset["available"] and preset["free"]:
-            return {
-                "provider_id": preset["provider_id"],
-                "model_id": preset["model_id"],
-            }
-    return None
+def get_default_preset() -> dict[str, str]:
+    """Return the default preset (first free Groq model)."""
+    # Default to Groq's fastest free model
+    return {
+        "provider_id": "groq",
+        "model_id": "llama-3.3-70b-versatile",
+    }
 
 
 def resolve_preset(provider_id: str, model_id: str) -> dict[str, str] | None:
-    """Resolve a preset to base_url and check if API key is available."""
+    """Resolve a preset to base_url and model name."""
     provider_config = PROVIDERS.get(provider_id)
     if not provider_config:
         return None
@@ -81,23 +73,9 @@ def resolve_preset(provider_id: str, model_id: str) -> dict[str, str] | None:
     if not model_exists:
         return None
     
-    env_key = provider_config["env_key"]
-    api_key = os.environ.get(env_key, "").strip()
-    if not api_key:
-        return None
-    
     return {
         "base_url": provider_config["base_url"],
         "model": model_id,
-        "api_key": api_key,
     }
 
 
-def get_provider_key(provider_id: str) -> str | None:
-    """Get the API key for a provider from environment."""
-    provider_config = PROVIDERS.get(provider_id)
-    if not provider_config:
-        return None
-    
-    env_key = provider_config["env_key"]
-    return os.environ.get(env_key, "").strip() or None

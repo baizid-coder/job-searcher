@@ -113,7 +113,7 @@ class ChatFlowTests(unittest.IsolatedAsyncioTestCase):
         db.DB_PATH = Path(self.tmp.name) / "jobfinder.db"
         self.client = TestClient(app)
         self.client.__enter__()
-        self.client.put("/api/settings", json={"base_url": "http://127.0.0.1:9/v1", "model": "test-model"})
+        self.client.put("/api/settings", json={"base_url": "http://127.0.0.1:9/v1", "model": "test-model", "api_key": "test-key"})
         self.client.put(
             "/api/profile",
             json={

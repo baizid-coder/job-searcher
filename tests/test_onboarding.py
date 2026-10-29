@@ -45,7 +45,7 @@ BSc Geography
 - Statistics
 """
 
-SETTINGS = {"base_url": "http://127.0.0.1:9", "model": "test"}
+SETTINGS = {"base_url": "http://127.0.0.1:9", "model": "test", "api_key": "test-key"}
 QUOTE = "Built APIs with Python as an Intern."
 
 

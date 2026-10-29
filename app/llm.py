@@ -76,12 +76,12 @@ def _connection_refused(exc: BaseException) -> bool:
 
 def configured(settings: dict) -> bool:
     """Check if model is configured (either preset or custom)."""
-    # If using preset, check if it's resolved
-    if settings.get("use_preset"):
-        # Preset settings will have base_url and model if resolved successfully
-        return bool(settings.get("base_url") and settings.get("model"))
-    # For custom settings, check manual config
-    return bool(settings.get("base_url") and settings.get("model"))
+    # Need base_url, model, and api_key for both preset and custom
+    return bool(
+        settings.get("base_url") 
+        and settings.get("model")
+        and settings.get("api_key")
+    )
 
 
 def _endpoint(base_url: str) -> str:
@@ -111,19 +111,12 @@ def _parse_json(text: str) -> dict:
 
 
 async def complete(settings: dict, messages: list[dict], timeout: float | None = None) -> str:
-    from app import model_presets
-    
     if not configured(settings):
         raise ModelError(NO_MODEL)
     headers = {"Content-Type": "application/json"}
     
-    # Get API key - either from preset resolution or from stored settings
-    if settings.get("use_preset"):
-        provider_id = settings.get("preset_provider", "")
-        api_key = model_presets.get_provider_key(provider_id)
-        if api_key:
-            headers["Authorization"] = f"Bearer {api_key}"
-    elif settings.get("api_key"):
+    # Get API key from settings (works for both preset and advanced mode)
+    if settings.get("api_key"):
         headers["Authorization"] = f"Bearer {settings['api_key']}"
     
     payload = {

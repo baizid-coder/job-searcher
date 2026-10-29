@@ -17,19 +17,22 @@ Open http://127.0.0.1:8000
 
 ### One-Click Presets
 
-The app includes preset models from free providers:
-- **Groq**: Llama 3.3 70B, Llama 3.1 70B, Mixtral 8x7B
-- **OpenRouter**: Gemini 2.0 Flash (Free), Gemini 1.5 Flash, Llama 3.2 3B (Free)  
-- **Google Gemini**: Gemini 2.0 Flash, Gemini 1.5 Flash
+The app includes preset models from free providers - no typing of base URLs or model names needed!
 
-To enable presets, set these environment variables:
-```bash
-export GROQ_API_KEY="your-groq-api-key"
-export OPENROUTER_API_KEY="your-openrouter-api-key"
-export GEMINI_API_KEY="your-google-api-key"
-```
+- **Groq** (recommended) - Llama 3.3 70B, Llama 3.1 70B, Mixtral 8x7B
+- **OpenRouter** - Gemini 2.0 Flash (Free), Gemini 1.5 Flash, Llama 3.2 3B (Free)  
+- **Google Gemini** - Gemini 2.0 Flash, Gemini 1.5 Flash
 
-The app auto-selects the first available free model. Pick a different preset from the dropdown in Settings, or choose "Advanced / Custom" for Ollama or another endpoint.
+**Setup:**
+
+1. Get an API key from your chosen provider:
+   - **Groq** (fast & free): https://console.groq.com/
+   - **OpenRouter**: https://openrouter.ai/keys
+   - **Google Gemini**: https://aistudio.google.com/app/apikey
+
+2. Open Settings (gear icon), select a preset from the dropdown, paste your API key, and click "Save settings"
+
+3. Your key is saved locally in the app's database (never committed to git)
 
 ### Custom Models
 
