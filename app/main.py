@@ -17,6 +17,8 @@ from app.match import query_keywords, rank_jobs, search_block_reason, select_vis
 from app.posting import _relevant, load_posting
 from app.discover.api import router as discover_router
 from app.resume import extract_pdf_text, parse_resume
+from app.sources import collect
+from app.onboarding.api import router as onboarding_router
 from app.sources.linkedin import extract_urls, fetch_jobs, looks_like_secret
 
 ROOT = Path(__file__).resolve().parent
@@ -43,6 +45,7 @@ async def lifespan(_app: FastAPI):
 app = FastAPI(title="Job finder", lifespan=lifespan)
 app.include_router(masters_router)
 app.include_router(discover_router)
+app.include_router(onboarding_router)
 
 
 class ProfileIn(BaseModel):
