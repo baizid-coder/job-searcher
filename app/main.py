@@ -278,9 +278,25 @@ async def upload_resume_pdf(file: UploadFile = File(...)):
     return _apply_resume(text)
 
 
+class PresetIn(BaseModel):
+    provider_id: str
+    model_id: str
+
+
+@app.get("/api/presets")
+def list_presets():
+    from app import model_presets
+    return {"presets": model_presets.get_presets()}
+
+
 @app.put("/api/settings")
 def save_settings(body: SettingsIn):
     return db.save_settings(body.base_url, body.model, body.api_key, body.clear_key)
+
+
+@app.put("/api/settings/preset")
+def save_preset(body: PresetIn):
+    return db.save_preset_settings(body.provider_id, body.model_id)
 
 
 @app.post("/api/settings/test")

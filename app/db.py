@@ -160,21 +160,98 @@ def get_settings() -> dict:
         "base_url": stored.get("base_url", ""),
         "model": stored.get("model", ""),
         "api_key": stored.get("api_key", ""),
+        "preset_provider": stored.get("preset_provider", ""),
+        "preset_model": stored.get("preset_model", ""),
+        "use_preset": stored.get("use_preset", "1") == "1",
     }
 
 
 def public_settings() -> dict:
+    from app import model_presets
+    
     settings = get_settings()
-    key = settings["api_key"]
-    ready = bool(settings.get("base_url") and settings.get("model"))
+    use_preset = settings.get("use_preset", True)
+    
+    # If using preset, resolve it
+    if use_preset:
+        provider_id = settings.get("preset_provider", "")
+        model_id = settings.get("preset_model", "")
+        
+        # Try to resolve preset
+        if provider_id and model_id:
+            resolved = model_presets.resolve_preset(provider_id, model_id)
+            if resolved:
+                # Preset is available
+                return {
+                    "use_preset": True,
+                    "preset_provider": provider_id,
+                    "preset_model": model_id,
+                    "base_url": resolved["base_url"],
+                    "model": resolved["model"],
+                    "has_key": True,
+                    "key_hint": "preset",
+                    "configured": True,
+                    "model_note": "",
+                }
+            else:
+                # Preset not available (no API key)
+                from app.llm import NO_MODEL
+                presets = model_presets.get_presets()
+                preset = next((p for p in presets if p["provider_id"] == provider_id and p["model_id"] == model_id), None)
+                note = NO_MODEL
+                if preset and preset.get("unavailable_reason"):
+                    note = f"{preset['unavailable_reason']}. {NO_MODEL}"
+                return {
+                    "use_preset": True,
+                    "preset_provider": provider_id,
+                    "preset_model": model_id,
+                    "base_url": "",
+                    "model": model_id,
+                    "has_key": False,
+                    "key_hint": "",
+                    "configured": False,
+                    "model_note": note,
+                }
+        
+        # No preset selected, try to use default
+        default = model_presets.get_default_preset()
+        if default:
+            resolved = model_presets.resolve_preset(default["provider_id"], default["model_id"])
+            if resolved:
+                # Auto-select default preset
+                _write_settings({
+                    "preset_provider": default["provider_id"],
+                    "preset_model": default["model_id"],
+                    "use_preset": "1",
+                })
+                return {
+                    "use_preset": True,
+                    "preset_provider": default["provider_id"],
+                    "preset_model": default["model_id"],
+                    "base_url": resolved["base_url"],
+                    "model": resolved["model"],
+                    "has_key": True,
+                    "key_hint": "preset",
+                    "configured": True,
+                    "model_note": "",
+                }
+    
+    # Using advanced/custom settings or no preset available
+    key = settings.get("api_key", "")
+    base_url = settings.get("base_url", "")
+    model = settings.get("model", "")
+    ready = bool(base_url and model)
     note = ""
     if not ready:
         from app.llm import NO_MODEL
-
         note = NO_MODEL
+    
     return {
-        "base_url": settings["base_url"],
-        "model": settings["model"],
+        "use_preset": False,
+        "preset_provider": "",
+        "preset_model": "",
+        "base_url": base_url,
+        "model": model,
         "has_key": bool(key),
         "key_hint": f"····{key[-4:]}" if len(key) >= 4 else ("saved" if key else ""),
         "configured": ready,
@@ -204,6 +281,19 @@ def save_settings(base_url: str, model: str, api_key: str | None, clear_key: boo
         "base_url": base_url.strip().rstrip("/"),
         "model": model.strip(),
         "api_key": key,
+        "use_preset": "0",  # Using advanced/custom settings
+        "preset_provider": "",
+        "preset_model": "",
+    })
+    return public_settings()
+
+
+def save_preset_settings(provider_id: str, model_id: str) -> dict:
+    """Save preset provider and model selection."""
+    _write_settings({
+        "preset_provider": provider_id,
+        "preset_model": model_id,
+        "use_preset": "1",
     })
     return public_settings()
 

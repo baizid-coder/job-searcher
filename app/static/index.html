@@ -257,12 +257,21 @@
   <dialog id="settings">
     <form id="settings-form" class="fields">
       <h2>Model</h2>
-      <p class="hint">Ollama: base URL http://127.0.0.1:11434/v1 and the model you pulled. A hosted model also needs an API key. It stays on this PC. Search, saving a resume, and a template CV work with no model connected.</p>
-      <label>Base URL <input id="base-url" placeholder="http://127.0.0.1:11434/v1"></label>
-      <label>Model <input id="model" placeholder="llama3.2"></label>
-      <label>API key <input id="api-key" type="password" autocomplete="off"></label>
-      <label class="row"><input id="clear-key" type="checkbox" style="width: auto;"> Clear the saved key</label>
-      <p id="key-hint" class="hint"></p>
+      <label>
+        Choose a model
+        <select id="model-picker">
+          <option value="">Loading...</option>
+        </select>
+      </label>
+      <p id="preset-note" class="hint" hidden></p>
+      <div id="advanced-settings" hidden>
+        <p class="hint">Ollama: base URL http://127.0.0.1:11434/v1 and the model you pulled. A hosted model also needs an API key. It stays on this PC.</p>
+        <label>Base URL <input id="base-url" placeholder="http://127.0.0.1:11434/v1"></label>
+        <label>Model <input id="model" placeholder="llama3.2"></label>
+        <label>API key <input id="api-key" type="password" autocomplete="off"></label>
+        <label class="row"><input id="clear-key" type="checkbox" style="width: auto;"> Clear the saved key</label>
+        <p id="key-hint" class="hint"></p>
+      </div>
       <div class="row">
         <button type="submit">Save settings</button>
         <button id="test-model" class="secondary" type="button">Check connection</button>
@@ -846,25 +855,134 @@
       }
     });
 
-    $("settings-open").addEventListener("click", () => $("settings").showModal());
+    let allPresets = [];
+    
+    async function loadPresets() {
+      try {
+        const data = await api("/api/presets");
+        allPresets = data.presets || [];
+        populateModelPicker(allPresets);
+      } catch (error) {
+        console.error("Failed to load presets:", error);
+      }
+    }
+    
+    function populateModelPicker(presets) {
+      const picker = $("model-picker");
+      picker.innerHTML = "";
+      
+      // Group by provider
+      const groups = {};
+      presets.forEach(p => {
+        if (!groups[p.provider_name]) groups[p.provider_name] = [];
+        groups[p.provider_name].push(p);
+      });
+      
+      // Add preset options
+      for (const [providerName, models] of Object.entries(groups)) {
+        const optgroup = document.createElement("optgroup");
+        optgroup.label = providerName;
+        models.forEach(preset => {
+          const option = document.createElement("option");
+          option.value = JSON.stringify({provider_id: preset.provider_id, model_id: preset.model_id});
+          option.textContent = preset.model_name + (preset.free ? " (Free)" : "");
+          option.disabled = !preset.available;
+          if (!preset.available && preset.unavailable_reason) {
+            option.textContent += " - " + preset.unavailable_reason;
+          }
+          optgroup.appendChild(option);
+        });
+        picker.appendChild(optgroup);
+      }
+      
+      // Add advanced/custom option
+      const advOption = document.createElement("option");
+      advOption.value = "advanced";
+      advOption.textContent = "Advanced / Custom (Ollama, etc.)";
+      picker.appendChild(advOption);
+    }
+    
+    function showPresetSettings(settings) {
+      const picker = $("model-picker");
+      const advancedDiv = $("advanced-settings");
+      const presetNote = $("preset-note");
+      
+      if (settings.use_preset && settings.preset_provider) {
+        // Select the preset
+        const value = JSON.stringify({provider_id: settings.preset_provider, model_id: settings.preset_model});
+        picker.value = value;
+        advancedDiv.hidden = true;
+        
+        // Show note if configured
+        if (settings.configured) {
+          presetNote.hidden = false;
+          presetNote.textContent = "Using " + settings.model + " from preset. No API key needed in the UI.";
+        } else {
+          presetNote.hidden = false;
+          presetNote.textContent = settings.model_note || "Preset not available.";
+        }
+      } else {
+        // Advanced mode
+        picker.value = "advanced";
+        advancedDiv.hidden = false;
+        presetNote.hidden = true;
+        
+        $("base-url").value = settings.base_url || "";
+        $("model").value = settings.model || "";
+        $("key-hint").textContent = settings.has_key ? "A key is saved (" + settings.key_hint + ")." : "No key saved.";
+      }
+    }
+    
+    $("model-picker").addEventListener("change", () => {
+      const picker = $("model-picker");
+      const advancedDiv = $("advanced-settings");
+      const presetNote = $("preset-note");
+      
+      if (picker.value === "advanced") {
+        advancedDiv.hidden = false;
+        presetNote.hidden = true;
+      } else {
+        advancedDiv.hidden = true;
+        presetNote.hidden = false;
+        presetNote.textContent = "This preset uses a server-side API key. No manual entry needed.";
+      }
+    });
+
+    $("settings-open").addEventListener("click", async () => {
+      await loadPresets();
+      const data = await api("/api/state");
+      showPresetSettings(data.settings);
+      $("settings").showModal();
+    });
     $("settings-close").addEventListener("click", () => $("settings").close());
     $("settings-form").addEventListener("submit", async (event) => {
       event.preventDefault();
       clearError();
-      const payload = {
-        base_url: $("base-url").value,
-        model: $("model").value,
-        clear_key: $("clear-key").checked,
-      };
-      if ($("api-key").value) payload.api_key = $("api-key").value;
+      
+      const picker = $("model-picker");
       const saveButton = event.submitter || event.target.querySelector("button[type=submit]");
       saveButton.disabled = true;
       $("test-model").disabled = true;
+      
       try {
-        const settings = await api("/api/settings", { method: "PUT", body: JSON.stringify(payload) });
-        $("api-key").value = "";
-        $("clear-key").checked = false;
-        $("key-hint").textContent = settings.has_key ? "A key is saved (" + settings.key_hint + ")." : "No key saved.";
+        let settings;
+        if (picker.value === "advanced") {
+          // Save advanced settings
+          const payload = {
+            base_url: $("base-url").value,
+            model: $("model").value,
+            clear_key: $("clear-key").checked,
+          };
+          if ($("api-key").value) payload.api_key = $("api-key").value;
+          settings = await api("/api/settings", { method: "PUT", body: JSON.stringify(payload) });
+          $("api-key").value = "";
+          $("clear-key").checked = false;
+          $("key-hint").textContent = settings.has_key ? "A key is saved (" + settings.key_hint + ")." : "No key saved.";
+        } else {
+          // Save preset
+          const preset = JSON.parse(picker.value);
+          settings = await api("/api/settings/preset", { method: "PUT", body: JSON.stringify(preset) });
+        }
         await testSavedModel();
       } catch (error) {
         setModelStatus(errorText(error), "bad");

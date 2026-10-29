@@ -15,11 +15,31 @@ Open http://127.0.0.1:8000
 
 ## Chat model
 
-The chat and a model-written CV summary use an OpenAI-compatible model. Search, saving a resume, and a template CV still work when none is configured. The page says so instead of asking you to connect one.
+### One-Click Presets
 
-Ollama, on this PC: install Ollama, run `ollama pull llama3.2`, then in Settings set the base URL to `http://127.0.0.1:11434/v1` and the model to `llama3.2`.
+The app includes preset models from free providers:
+- **Groq**: Llama 3.3 70B, Llama 3.1 70B, Mixtral 8x7B
+- **OpenRouter**: Gemini 2.0 Flash (Free), Gemini 1.5 Flash, Llama 3.2 3B (Free)  
+- **Google Gemini**: Gemini 2.0 Flash, Gemini 1.5 Flash
 
-A hosted model: set its base URL, model name, and API key in Settings. The key stays in the local database on this computer.
+To enable presets, set these environment variables:
+```bash
+export GROQ_API_KEY="your-groq-api-key"
+export OPENROUTER_API_KEY="your-openrouter-api-key"
+export GEMINI_API_KEY="your-google-api-key"
+```
+
+The app auto-selects the first available free model. Pick a different preset from the dropdown in Settings, or choose "Advanced / Custom" for Ollama or another endpoint.
+
+### Custom Models
+
+Ollama, on this PC: install Ollama, run `ollama pull llama3.2`, then in Settings choose "Advanced / Custom" and set the base URL to `http://127.0.0.1:11434/v1` and the model to `llama3.2`.
+
+Other hosted models: choose "Advanced / Custom" and set base URL, model name, and API key. The key stays in the local database on this computer.
+
+### Fallback
+
+Search, saving a resume, and a template CV still work when no model is configured. The page says so instead of asking you to connect one.
 
 ## What a search does
 
