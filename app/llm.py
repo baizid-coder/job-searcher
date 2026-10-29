@@ -5,7 +5,7 @@ import httpx
 
 from app.cv import assemble_cv, template_cover, template_summary
 
-PROFILE_KEYS = ("titles", "must_have", "nice_have", "city", "salary_floor_bdt", "work_mode", "exclude")
+PROFILE_KEYS = ("seeking", "titles", "must_have", "nice_have", "city", "salary_floor_bdt", "work_mode", "exclude")
 
 
 class ModelError(Exception):
@@ -156,14 +156,23 @@ async def requirements_turn(settings: dict, history: list[dict], profile: dict, 
     system = (
         "You help a job seeker in Bangladesh turn a conversation into search requirements. "
         "Talk in short, plain sentences. Return only a JSON object with this shape: "
-        '{"reply":"what you say","profile":{"titles":[],"must_have":[],"nice_have":[],'
+        '{"reply":"what you say","profile":{"seeking":[],"titles":[],"must_have":[],"nice_have":[],'
         '"city":"Dhaka","salary_floor_bdt":null,"work_mode":"both","exclude":[]}}. '
-        "Keep every current profile value unless the user changed it. "
+        "seeking is the kind of job they want now, in their words, such as junior Python or data analyst. "
+        "Search keeps listings of that kind, so put the role they asked for in seeking and nowhere else. "
+        "Replace seeking when they name a different kind of job. "
+        "Omit seeking, or repeat the current list, when they did not name a role. "
+        "titles are past roles already on the profile. Change titles only when they correct their history. "
+        "Keep every other current profile value unless the user changed it. "
         "work_mode is remote only when they want remote jobs alone, otherwise both. "
+        "Do not put remote into seeking. "
         "salary_floor_bdt is an integer in taka or null. "
-        "Use skills and titles from the resume only when the user points at the resume. "
+        "Put a tool or skill in must_have only when they say they know it or point at the resume. "
         "Do not invent employers, dates, or skills. "
-        "Ask one short follow-up if titles or skills are still empty."
+        "In reply, name the kind of job you will search for. "
+        "Ask one short follow-up when they have not named a role yet. "
+        'Example: "I want junior Python work in Dhaka and I know Django" '
+        'sets seeking to ["Junior Python"], must_have to include Django, city to Dhaka, and work_mode to both.'
     )
     messages = [
         {"role": "system", "content": system},
@@ -184,7 +193,11 @@ async def requirements_turn(settings: dict, history: list[dict], profile: dict, 
         parsed = _parse_json(text)
     reply = str(parsed.get("reply") or "").strip() or "I updated the form from what you said."
     patch = parsed.get("profile") if isinstance(parsed.get("profile"), dict) else {}
-    return reply, {key: patch[key] for key in PROFILE_KEYS if key in patch}
+    lifted = dict(patch)
+    for key in PROFILE_KEYS:
+        if key not in lifted and key in parsed:
+            lifted[key] = parsed[key]
+    return reply, {key: lifted[key] for key in PROFILE_KEYS if key in lifted}
 
 
 async def write_summary_and_note(settings: dict, profile: dict, job: dict) -> tuple[str, str]:
