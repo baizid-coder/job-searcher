@@ -1,6 +1,6 @@
 import asyncio
 import json
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
 from pathlib import Path
 
 from fastapi import FastAPI, File, HTTPException, UploadFile
@@ -8,12 +8,17 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
 from app import db
+from app.masters import store as masters_store
+from app.masters.api import router as masters_router
 from app.cv import assemble_cv, extract_summary, template_documents, template_summary
-from app.llm import ModelError, build_documents, configured, complete, requirements_turn
+from app.feeds import collect_and_store, feed_loop, public_feed_status
+from app.llm import NO_MODEL, ModelError, build_documents, configured, complete, requirements_turn
 from app.match import query_keywords, rank_jobs, search_block_reason, select_visible
 from app.posting import _relevant, load_posting
+from app.discover.api import router as discover_router
 from app.resume import extract_pdf_text, parse_resume
 from app.sources import collect
+from app.onboarding.api import router as onboarding_router
 from app.sources.linkedin import extract_urls, fetch_jobs, looks_like_secret
 
 ROOT = Path(__file__).resolve().parent
@@ -25,10 +30,22 @@ PDF_CONTENT_TYPES = {"", "application/pdf", "application/x-pdf", "application/oc
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     db.init()
-    yield
+    masters_store.init()
+    stop = asyncio.Event()
+    task = asyncio.create_task(feed_loop(stop), name="job-feed-refresh")
+    try:
+        yield
+    finally:
+        stop.set()
+        task.cancel()
+        with suppress(asyncio.CancelledError):
+            await task
 
 
 app = FastAPI(title="Job finder", lifespan=lifespan)
+app.include_router(masters_router)
+app.include_router(discover_router)
+app.include_router(onboarding_router)
 
 
 class ProfileIn(BaseModel):
@@ -36,6 +53,7 @@ class ProfileIn(BaseModel):
     name: str = ""
     contact: str = ""
     titles: list[str] | str = Field(default_factory=list)
+    seeking: list[str] | str = Field(default_factory=list)
     must_have: list[str] | str = Field(default_factory=list)
     nice_have: list[str] | str = Field(default_factory=list)
     city: str = "Dhaka"
@@ -69,6 +87,10 @@ class LinkedInIn(BaseModel):
     urls: str = Field(default="", max_length=8000)
 
 
+class FeedIn(BaseModel):
+    auto_refresh: bool
+
+
 def _lead(job: dict) -> dict:
     return {
         "id": job["id"],
@@ -96,9 +118,17 @@ def _board() -> dict:
     }
 
 
-def _chat_patch(patch: dict) -> dict:
+def _same_terms(left, right) -> bool:
+    return [item.lower() for item in db.split_terms(left)] == [item.lower() for item in db.split_terms(right)]
+
+
+def _view() -> dict:
+    return {**_board(), "feeds": public_feed_status()}
+
+
+def _chat_patch(patch: dict, previous: dict | None = None) -> dict:
     cleaned: dict = {}
-    for key in ("titles", "must_have", "nice_have", "exclude"):
+    for key in ("seeking", "titles", "must_have", "nice_have", "exclude"):
         if key in patch:
             terms = db.split_terms(patch[key])
             if terms:
@@ -110,6 +140,13 @@ def _chat_patch(patch: dict) -> dict:
         cleaned["city"] = city
     if patch.get("salary_floor_bdt") not in (None, ""):
         cleaned["salary_floor_bdt"] = patch["salary_floor_bdt"]
+    # The wanted role belongs in seeking. A reply that writes it into titles would erase past roles.
+    previous_titles = (previous or {}).get("titles") or []
+    if "titles" in cleaned and not _same_terms(cleaned["titles"], previous_titles):
+        if "seeking" not in cleaned:
+            cleaned["seeking"] = cleaned.pop("titles")
+        elif _same_terms(cleaned["titles"], cleaned["seeking"]):
+            cleaned.pop("titles")
     return cleaned
 
 
@@ -124,7 +161,7 @@ def state():
         "profile": db.get_profile(),
         "settings": db.public_settings(),
         "messages": db.list_messages(30),
-        **_board(),
+        **_view(),
     }
 
 
@@ -241,21 +278,39 @@ async def upload_resume_pdf(file: UploadFile = File(...)):
     return _apply_resume(text)
 
 
+class PresetIn(BaseModel):
+    provider_id: str
+    model_id: str
+    api_key: str | None = None
+    clear_key: bool = False
+
+
+@app.get("/api/presets")
+def list_presets():
+    from app import model_presets
+    return {"presets": model_presets.get_presets()}
+
+
 @app.put("/api/settings")
 def save_settings(body: SettingsIn):
     return db.save_settings(body.base_url, body.model, body.api_key, body.clear_key)
+
+
+@app.put("/api/settings/preset")
+def save_preset(body: PresetIn):
+    return db.save_preset_settings(body.provider_id, body.model_id, body.api_key, body.clear_key)
 
 
 @app.post("/api/settings/test")
 async def test_settings():
     settings = db.get_settings()
     if not configured(settings):
-        raise HTTPException(status_code=400, detail="Add a base URL and a model name first.")
+        return {"ok": False, "configured": False, "reply": NO_MODEL}
     try:
         reply = await complete(settings, [{"role": "user", "content": "Reply with the single word ready."}])
     except ModelError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
-    return {"ok": True, "reply": reply.strip()[:200]}
+    return {"ok": True, "configured": True, "reply": reply.strip()[:200]}
 
 
 @app.post("/api/chat")
@@ -265,10 +320,12 @@ async def chat(body: ChatIn):
         raise HTTPException(status_code=400, detail="Write a message first.")
     settings = db.get_settings()
     if not configured(settings):
-        raise HTTPException(
-            status_code=400,
-            detail="Connect a model in Settings. You can still fill the form and search without one.",
-        )
+        return {
+            "reply": NO_MODEL,
+            "configured": False,
+            "profile": db.get_profile(),
+            "messages": db.list_messages(30),
+        }
     try:
         reply, patch = await requirements_turn(settings, db.list_messages(12), db.get_profile(), message)
     except ModelError as exc:
@@ -277,8 +334,14 @@ async def chat(body: ChatIn):
         raise HTTPException(status_code=502, detail="The model did not return requirements I could read. Try again.") from exc
     db.add_message("user", message)
     db.add_message("assistant", reply)
-    profile = db.save_profile(_chat_patch(patch))
-    return {"reply": reply, "profile": profile, "messages": db.list_messages(30)}
+    profile = db.save_profile(_chat_patch(patch, db.get_profile()))
+    return {"reply": reply, "configured": True, "profile": profile, "messages": db.list_messages(30)}
+
+
+@app.put("/api/feeds")
+def update_feeds(body: FeedIn):
+    db.set_auto_refresh(body.auto_refresh)
+    return public_feed_status()
 
 
 @app.post("/api/search")
@@ -287,18 +350,20 @@ async def search(body: ProfileIn):
     reason = search_block_reason(profile)
     if reason:
         raise HTTPException(status_code=400, detail=reason)
-    jobs, warnings = await collect(query_keywords(profile))
-    ranked = select_visible(rank_jobs(jobs, profile))
-    warnings = list(warnings)
-    sources_down = bool(warnings) and not ranked
-    if not ranked and not warnings:
-        if jobs:
-            warnings.append("No listings were left after your excluded terms and work-mode limits.")
-        else:
-            warnings.append("The job boards returned no listings.")
-    if not sources_down:
-        db.store_search(ranked)
-    return {"matched": len(ranked), "warnings": warnings, "profile": profile, **_board()}
+    result = await collect_and_store(profile)
+    # Enhance empty result warnings with seeking-specific message
+    warnings = result["warnings"]
+    if result["matched"] == 0 and not warnings:
+        sought = db.split_terms(profile.get("seeking"))
+        if sought:
+            warnings = ["No listings matched " + ", ".join(sought[:4]) + "."]
+    return {
+        "matched": result["matched"],
+        "added": result["added"],
+        "warnings": warnings,
+        "profile": profile,
+        **_view(),
+    }
 
 
 def _needs_cv(job: dict) -> bool:
@@ -347,7 +412,7 @@ async def import_linkedin(body: LinkedInIn):
     warnings.extend(fetch_warnings)
     if jobs:
         db.upsert_imported(jobs)
-    return {"imported": len(jobs), "warnings": warnings, **_board()}
+    return {"imported": len(jobs), "warnings": warnings, **_view()}
 
 
 @app.get("/api/jobs/{job_id}")
@@ -418,4 +483,4 @@ def decide(job_id: str, body: DecideIn):
     )
     if updated is None:
         raise HTTPException(status_code=404, detail="That lead is no longer here.")
-    return {"job": updated, **_board()}
+    return {"job": updated, **_view()}

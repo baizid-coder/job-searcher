@@ -15,15 +15,57 @@ Open http://127.0.0.1:8000
 
 ## Chat model
 
-The chat and the CV summary use an OpenAI-compatible model. Search, the form, and a plain CV still work if you do not connect one.
+### One-Click Presets
 
-Ollama, on this PC: install Ollama, run `ollama pull llama3.2`, then in Settings set the base URL to `http://127.0.0.1:11434/v1` and the model to `llama3.2`.
+The app includes preset models from two providers - no typing of base URLs or model names needed!
 
-A hosted model: set its base URL, model name, and API key in Settings. The key stays in the local database on this computer.
+**Groq (Default, Free & Fast)**
+- Llama 3.3 70B Versatile ⭐ (default)
+- Llama 3.1 70B Versatile
+- Mixtral 8x7B
+
+**OpenRouter (Backup, Multiple Models)**
+- Gemini 2.5 Flash Preview
+- GPT-4o Mini
+- Gemini 2.0 Flash (Free)
+- Gemini 1.5 Flash (Free)
+- Llama 3.2 3B (Free)
+
+**Setup:**
+
+1. Get an API key from your chosen provider:
+   - **Groq** (recommended): https://console.groq.com/
+   - **OpenRouter** (backup): https://openrouter.ai/keys
+
+2. **Option A - Settings UI:**
+   - Open Settings (gear icon)
+   - Select a preset from the dropdown
+   - Paste your API key
+   - Click "Save settings"
+
+3. **Option B - Environment Variables:**
+   ```bash
+   export GROQ_API_KEY="your-groq-key"
+   export OPENROUTER_API_KEY="your-openrouter-key"
+   ```
+
+Your key is saved locally in the app's database or read from environment variables (never committed to git)
+
+### Custom Models
+
+Ollama, on this PC: install Ollama, run `ollama pull llama3.2`, then in Settings choose "Advanced / Custom" and set the base URL to `http://127.0.0.1:11434/v1` and the model to `llama3.2`.
+
+Other hosted models: choose "Advanced / Custom" and set base URL, model name, and API key. The key stays in the local database on this computer.
+
+### Fallback
+
+Search, saving a resume, and a template CV still work when no model is configured. The page says so instead of asking you to connect one.
 
 ## What a search does
 
 Bdjobs is queried with your job titles. Himalayas, Jobicy, Remotive, and Remote OK contribute their latest public listings, which this app then filters. Each card names the source and links back to that board. Apply opens the company page when one is available, or the board page, and stores the CV you edited. It does not submit the application.
+
+While the app is running, the same check runs every 8 hours and adds new listings. Leads already on the page stay there, including LinkedIn jobs you pasted. The switch under Leads turns that 8-hour check off. Search still works with the switch off, and it also leaves older leads in place.
 
 ## LinkedIn
 

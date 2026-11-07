@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Onboarding · Job finder</title>
+  <link rel="stylesheet" href="/onboarding/discover-tokens.css">
+  <link rel="stylesheet" href="/onboarding/onboarding.css">
+</head>
+<body>
+  <main class="page section-gap">
+    <header class="header">
+      <div class="stack">
+        <p class="kicker">Job finder</p>
+        <h1>Onboarding</h1>
+        <p class="muted" id="status-line">About 2 minutes. Every question is optional.</p>
+      </div>
+      <nav class="row" aria-label="Pages">
+        <a href="/">Job finder</a>
+        <a href="/profile">My Profile</a>
+      </nav>
+    </header>
+    <p id="boot-loading">Loading onboarding…</p>
+    <div id="boot-error" class="notice error" hidden role="alert"></div>
+    <div id="app" class="section-gap" hidden>
+      <section id="screen-constraints" class="section-gap" hidden>
+        <div class="stack">
+          <h2>What should the feed never show?</h2>
+          <p class="muted">These are hard filters. Leave a field blank and it will not filter anything. You can change them later.</p>
+        </div>
+        <div id="constraints-error" class="notice error" hidden role="alert"></div>
+        <p id="constraints-loading" hidden>Saving constraints…</p>
+        <form id="constraints-form" class="section-gap">
+          <div class="split">
+            <fieldset class="card stack">
+              <legend><h3>Target locations</h3></legend>
+              <div id="location-choices" class="choice-grid"></div>
+              <div class="row">
+                <input id="location-extra" type="text" class="control" placeholder="Add a city or region" aria-label="Add a location">
+                <button type="button" id="add-location">Add</button>
+              </div>
+              <div class="stack" role="radiogroup" aria-label="Willing to relocate">
+                <span>Willing to relocate</span>
+                <label class="choice"><input type="radio" name="relocate" value="" checked> No answer</label>
+                <label class="choice"><input type="radio" name="relocate" value="yes"> Yes</label>
+                <label class="choice"><input type="radio" name="relocate" value="no"> No</label>
+                <label class="choice"><input type="radio" name="relocate" value="maybe"> Maybe</label>
+              </div>
+            </fieldset>
+            <fieldset class="card stack">
+              <legend><h3>Remote preference</h3></legend>
+              <label class="choice"><input type="radio" name="remote" value="" checked> No answer</label>
+              <label class="choice"><input type="radio" name="remote" value="remote"> Remote</label>
+              <label class="choice"><input type="radio" name="remote" value="hybrid"> Hybrid</label>
+              <label class="choice"><input type="radio" name="remote" value="onsite"> Onsite</label>
+              <label class="choice"><input type="radio" name="remote" value="no_preference"> No preference</label>
+            </fieldset>
+          </div>
+          <div class="split">
+            <fieldset class="card stack">
+              <legend><h3>Employment</h3></legend>
+              <div class="choice-grid">
+                <label class="choice"><input type="checkbox" name="employment" value="full-time"> Full-time</label>
+                <label class="choice"><input type="checkbox" name="employment" value="part-time"> Part-time</label>
+                <label class="choice"><input type="checkbox" name="employment" value="internship"> Internship</label>
+                <label class="choice"><input type="checkbox" name="employment" value="contract"> Contract</label>
+              </div>
+              <label class="field">Weekly hours
+                <input id="weekly-hours" type="number" min="0" max="168" step="1" inputmode="numeric" placeholder="Optional">
+              </label>
+            </fieldset>
+            <fieldset class="card stack">
+              <legend><h3>Minimum salary</h3></legend>
+              <label class="field">Amount
+                <input id="min-salary" type="number" min="0" step="1" inputmode="numeric" placeholder="Optional">
+              </label>
+              <label class="field">Currency
+                <select id="salary-currency">
+                  <option value="">No currency yet</option>
+                  <option>BDT</option>
+                  <option>USD</option>
+                  <option>EUR</option>
+                  <option>GBP</option>
+                  <option>JPY</option>
+                  <option>CAD</option>
+                  <option>AUD</option>
+                  <option>INR</option>
+                </select>
+              </label>
+              <label class="choice"><input id="salary-flexible" type="checkbox"> Flexible on salary</label>
+              <label class="field">Earliest start date
+                <input id="earliest-start" type="date">
+              </label>
+            </fieldset>
+          </div>
+          <fieldset class="card stack">
+            <legend><h3>Languages</h3></legend>
+            <p class="muted">A level is a hard filter only when a job requires that language above the level you set. Not set means no filter.</p>
+            <div id="language-rows" class="stack"></div>
+            <div class="row">
+              <input id="language-name" type="text" placeholder="Add a language" aria-label="Language name">
+              <button type="button" id="add-language">Add</button>
+            </div>
+          </fieldset>
+          <fieldset class="card stack">
+            <legend><h3>Work authorization notes</h3></legend>
+            <div id="auth-rows" class="stack"></div>
+            <button type="button" id="add-auth">Add a country</button>
+          </fieldset>
+          <div class="split">
+            <fieldset class="card stack">
+              <legend><h3>Industries to exclude</h3></legend>
+              <div id="industry-choices" class="choice-grid"></div>
+              <div class="row">
+                <input id="industry-extra" type="text" placeholder="Add an industry" aria-label="Add an industry">
+                <button type="button" id="add-industry">Add</button>
+              </div>
+            </fieldset>
+            <fieldset class="card stack">
+              <legend><h3>Companies to exclude</h3></legend>
+              <textarea id="companies" placeholder="One company per line" aria-label="Companies to exclude"></textarea>
+            </fieldset>
+          </div>
+          <div class="actions">
+            <button class="primary" type="submit">Save and see what I found</button>
+          </div>
+        </form>
+      </section>
+
+      <section id="screen-review" class="section-gap" hidden>
+        <div class="stack">
+          <h2>Here's what I see</h2>
+          <p class="muted" id="review-note"></p>
+        </div>
+        <div id="review-error" class="notice error" hidden role="alert"></div>
+        <p id="review-loading" hidden>Reading your resume…</p>
+        <div id="review-empty" class="notice" hidden></div>
+        <div id="resume-tools" class="card stack" hidden>
+          <h3>Resume</h3>
+          <p class="muted">Upload a PDF if one is not stored yet. Nothing here edits the resume.</p>
+          <label class="field">PDF resume
+            <input id="resume-file" type="file" accept="application/pdf,.pdf">
+          </label>
+          <label class="field">Paste text if the PDF has no text layer
+            <textarea id="resume-text" aria-label="Resume text"></textarea>
+          </label>
+          <div class="actions">
+            <button type="button" id="upload-resume">Use this resume</button>
+          </div>
+        </div>
+        <div id="review-list" class="stack"></div>
+        <div class="actions">
+          <button type="button" id="back-constraints">Edit constraints</button>
+          <button type="button" class="primary" id="review-next">Continue</button>
+        </div>
+      </section>
+
+      <section id="screen-reflection" class="section-gap" hidden>
+        <div class="stack">
+          <h2>A few questions from your own work</h2>
+          <p class="muted">Skip any question. The chips come from that experience, not from a generic prompt.</p>
+        </div>
+        <div id="reflection-error" class="notice error" hidden role="alert"></div>
+        <p id="reflection-loading" hidden>Preparing questions…</p>
+        <div id="reflection-empty" class="notice" hidden>No internship, project, job, or course with details was found to ask about.</div>
+        <form id="reflection-form" class="stack"></form>
+        <div class="actions">
+          <button type="button" id="skip-reflection">Skip all</button>
+          <button type="button" class="primary" id="save-reflection">Save answers</button>
+        </div>
+      </section>
+
+      <section id="screen-done" class="card stack" hidden>
+        <h2>Onboarding is saved</h2>
+        <p>Your preference profile is ready for Discover. The first batch keeps your hard filters, then shows about 70% of jobs near this profile and about 30% deliberately different so the profile can be tested.</p>
+        <p class="muted">Swipe decisions on Discover update this same profile and bump its version. This step does not apply to jobs or edit your resume.</p>
+        <div class="actions">
+          <a href="/profile">Open My Profile</a>
+          <button type="button" id="done-edit">Edit constraints</button>
+        </div>
+      </section>
+    </div>
+  </main>
+  <noscript><p>Onboarding needs JavaScript to load your saved step.</p></noscript>
+  <script src="/onboarding/onboarding.js"></script>
+</body>
+</html>

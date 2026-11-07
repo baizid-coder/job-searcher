@@ -1,0 +1,1187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Master's applications</title>
+  <style>
+    :root {
+      --paper: #f3efe4;
+      --ink: #1e1a16;
+      --muted: #5e564c;
+      --card: #fffdf8;
+      --line: #ddd4c4;
+      --green: #0e6b52;
+      --green-dark: #084737;
+      --clay: #8d3d2c;
+      --shadow: 0 12px 30px rgba(48, 36, 18, 0.08);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at top left, #efe4cc, transparent 36%),
+        var(--paper);
+      font: 16px/1.5 "Segoe UI", sans-serif;
+    }
+    header, main { width: min(1120px, calc(100% - 32px)); margin: 0 auto; }
+    header { display: flex; justify-content: space-between; align-items: end; gap: 16px; padding: 28px 0 8px; }
+    h1, h2, h3 { font-family: Georgia, serif; font-weight: 600; letter-spacing: -0.03em; }
+    h1 { margin: 0; font-size: 40px; }
+    h2 { margin: 0 0 12px; font-size: 26px; }
+    h3 { margin: 18px 0 8px; font-size: 20px; }
+    .eyebrow { margin: 0; color: var(--green); font-size: 13px; letter-spacing: 0.14em; text-transform: uppercase; }
+    button, input, textarea, select { font: inherit; color: inherit; }
+    button, a.nav-link {
+      border: 0;
+      border-radius: 999px;
+      padding: 10px 16px;
+      background: var(--green);
+      color: white;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-block;
+    }
+    button.secondary, a.nav-link.secondary { background: transparent; color: var(--ink); border: 1px solid var(--line); }
+    button.danger { background: var(--clay); }
+    button:disabled { opacity: 0.6; cursor: wait; }
+    button[aria-current="true"] { background: var(--green-dark); }
+    textarea, input, select {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 10px 12px;
+      background: white;
+    }
+    textarea { min-height: 88px; resize: vertical; }
+    label { display: grid; gap: 6px; font-size: 14px; color: var(--muted); }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      padding: 18px;
+      box-shadow: var(--shadow);
+      margin-bottom: 18px;
+    }
+    .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+    .fields { display: grid; gap: 12px; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+    .hint { color: var(--muted); font-size: 13px; margin: 8px 0 0; }
+    .hint.over { color: var(--clay); font-weight: 700; }
+    #banner {
+      width: min(1120px, calc(100% - 32px));
+      margin: 12px auto;
+      padding: 12px 14px;
+      border-radius: 12px;
+      background: #f8e6e1;
+      color: var(--clay);
+    }
+    #banner.ok { background: #e7f3ee; color: var(--green-dark); }
+    nav.sections { display: flex; gap: 8px; flex-wrap: wrap; margin: 12px 0 18px; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid var(--line); vertical-align: top; }
+    .badge, .band {
+      display: inline-block;
+      border-radius: 999px;
+      padding: 2px 10px;
+      font-size: 13px;
+      font-weight: 700;
+    }
+    .badge-eligible { background: #e7f3ee; color: var(--green-dark); }
+    .badge-blocked { background: #8d3d2c; color: white; }
+    .badge-stale { background: #fff3c4; color: #6b5200; }
+    .badge-unverified { background: #f6f1e6; color: #5e564c; }
+    .band-overdue { background: #8d3d2c; color: white; }
+    .band-d3 { background: #c4512b; color: white; }
+    .band-d7 { background: #e0a100; color: #1e1a16; }
+    .band-d14 { background: #3d6b9a; color: white; }
+    .band-later { background: #0e6b52; color: white; }
+    .deadline-row { border-radius: 12px; padding: 10px 12px; margin-bottom: 8px; }
+    .deadline-row.band-overdue { background: #f8e6e1; }
+    .deadline-row.band-d3 { background: #fde8d0; }
+    .deadline-row.band-d7 { background: #fff3c4; }
+    .deadline-row.band-d14 { background: #e7f0f8; }
+    .deadline-row.band-later { background: #e7f3ee; }
+    .copy-box { white-space: pre-wrap; min-height: 140px; }
+    .check { display: flex; gap: 8px; align-items: center; }
+    .check input { width: auto; }
+    @media (max-width: 800px) {
+      .grid-2, .grid-3 { grid-template-columns: 1fr; }
+      h1 { font-size: 32px; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div>
+      <p class="eyebrow">Prepare, then you approve</p>
+      <h1>Master's applications</h1>
+    </div>
+    <a class="nav-link secondary" href="/">Job finder</a>
+  </header>
+  <div id="banner" hidden></div>
+  <main>
+    <p class="hint">The system prepares drafts, checklists, and reminders. You approve them. Nothing is submitted to a university, and no email is sent, until you do that yourself.</p>
+    <nav class="sections" id="section-nav">
+      <button type="button" data-action="nav" data-section="dashboard" aria-current="true">Dashboard</button>
+      <button type="button" class="secondary" data-action="nav" data-section="programs">Programs</button>
+      <button type="button" class="secondary" data-action="nav" data-section="vault">Vault</button>
+      <button type="button" class="secondary" data-action="nav" data-section="scholarships">Scholarships</button>
+      <button type="button" class="secondary" data-action="nav" data-section="tests">Tests</button>
+      <button type="button" class="secondary" data-action="nav" data-section="profile">Academic profile</button>
+      <button type="button" class="secondary" data-action="nav" data-section="approvals">Approval queue</button>
+    </nav>
+    <section id="dashboard"></section>
+    <section id="programs" hidden></section>
+    <section id="program" hidden></section>
+    <section id="vault" hidden></section>
+    <section id="scholarships" hidden></section>
+    <section id="tests" hidden></section>
+    <section id="profile" hidden></section>
+    <section id="approvals" hidden></section>
+  </main>
+  <script>
+    const $ = (id) => document.getElementById(id);
+    const state = { section: "dashboard", programId: null, documents: [], templates: [], programs: [] };
+
+    function esc(value) {
+      return String(value ?? "").replace(/[&<>"']/g, (ch) => ({
+        "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+      }[ch]));
+    }
+
+    function countWords(text) {
+      const matches = String(text || "").trim().match(/\S+/g);
+      return matches ? matches.length : 0;
+    }
+
+    function bandLabel(band, days) {
+      if (band === "overdue") return "Overdue";
+      if (band === "d3") return days + "d · within 3 days";
+      if (band === "d7") return days + "d · within 7 days";
+      if (band === "d14") return days + "d · within 14 days";
+      if (band === "later") return days + "d · later";
+      return "";
+    }
+
+    function showBanner(message, ok) {
+      const banner = $("banner");
+      banner.hidden = !message;
+      banner.classList.toggle("ok", Boolean(ok));
+      banner.textContent = message || "";
+    }
+
+    async function api(path, options = {}) {
+      const opts = { method: options.method || "GET" };
+      if (options.body instanceof FormData) {
+        opts.body = options.body;
+        opts.method = options.method || "POST";
+      } else if (options.body !== undefined) {
+        opts.method = options.method || "POST";
+        opts.headers = { "Content-Type": "application/json" };
+        opts.body = JSON.stringify(options.body);
+      }
+      const response = await fetch(path, opts);
+      const text = await response.text();
+      let data = null;
+      try { data = text ? JSON.parse(text) : null; } catch (error) { data = { detail: text }; }
+      if (!response.ok) {
+        let detail = data && data.detail;
+        if (Array.isArray(detail)) detail = detail.map((item) => item.msg || JSON.stringify(item)).join(" ");
+        throw new Error(detail || response.statusText);
+      }
+      return data;
+    }
+
+    function showSection(name) {
+      state.section = name;
+      for (const id of ["dashboard", "programs", "program", "vault", "scholarships", "tests", "profile", "approvals"]) {
+        $(id).hidden = id !== name;
+      }
+      for (const button of document.querySelectorAll("#section-nav button")) {
+        const on = button.dataset.section === name;
+        button.classList.toggle("secondary", !on);
+        if (on) button.setAttribute("aria-current", "true");
+        else button.removeAttribute("aria-current");
+      }
+    }
+
+    async function openSection(name) {
+      showBanner("");
+      if (name === "program" && state.programId) {
+        showSection("program");
+        await loadProgram(state.programId);
+        return;
+      }
+      showSection(name);
+      if (name === "dashboard") await loadDashboard();
+      if (name === "programs") await loadPrograms();
+      if (name === "vault") await loadVault();
+      if (name === "scholarships") await loadScholarships();
+      if (name === "tests") await loadTests();
+      if (name === "profile") await loadProfile();
+      if (name === "approvals") await loadApprovals();
+    }
+
+    function badge(program) {
+      const eligibility = program.eligibility || {};
+      const text = eligibility.badge || program.badge || "eligible";
+      const blocked = eligibility.blocked || program.blocked || String(text).startsWith("blocked:");
+      return `<span class="badge ${blocked ? "badge-blocked" : "badge-eligible"}">${esc(text)}</span>`;
+    }
+
+    function deadlineBlock(items) {
+      if (!items.length) return `<p class="hint">No deadlines yet.</p>`;
+      return items.map((item) => `
+        <div class="deadline-row band-${esc(item.band)}">
+          <div class="row" style="justify-content: space-between;">
+            <strong>${esc(item.date)} · ${esc(item.type)}</strong>
+            <span class="band band-${esc(item.band)}">${esc(bandLabel(item.band, item.days_left))}</span>
+          </div>
+          <p class="meta hint">${esc(item.program_label || item.scholarship_name || "")} · ${esc(item.timezone || "UTC")} · ${esc(item.status)}</p>
+          <p class="hint">In-app reminders: ${(item.reminders || []).map((reminder) => esc(reminder.offset_days + "d")).join(", ") || "none"}. They are not emailed.</p>
+          <div class="row">
+            ${(item.reminders || []).map((reminder) => `<button class="secondary" type="button" data-action="draft-reminder" data-id="${reminder.id}">Draft ${reminder.offset_days}-day email</button>`).join("")}
+            ${item.program_id ? `<button class="danger" type="button" data-action="delete-deadline" data-id="${item.id}">Delete deadline</button>` : ""}
+          </div>
+        </div>
+      `).join("");
+    }
+
+    async function loadDashboard() {
+      const data = await api("/api/masters/dashboard");
+      const blocked = data.programs.filter((item) => item.blocked);
+      const eligible = data.programs.filter((item) => !item.blocked);
+      $("dashboard").innerHTML = `
+        <div class="grid-3">
+          <article class="card"><h2>Approvals</h2><p style="font-size: 32px; margin: 0;">${data.approval_count}</p><p class="hint">Drafts waiting for you. Approving does not send or submit.</p><button type="button" data-action="nav" data-section="approvals">Open queue</button></article>
+          <article class="card"><h2>Eligible</h2><p style="font-size: 32px; margin: 0;">${data.eligible_count}</p><p class="hint">Unknown requirements do not block a program.</p></article>
+          <article class="card"><h2>Blocked</h2><p style="font-size: 32px; margin: 0;">${data.blocked_count}</p><p class="hint">A failed GPA cutoff, age limit, or language level blocks.</p></article>
+        </div>
+        <section class="card">
+          <h2>Upcoming deadlines</h2>
+          <p class="hint">Color: overdue, 3 days, 7 days, 14 days, later. Reminders at 30, 14, 7, 3, and 1 days stay in the app.</p>
+          ${deadlineBlock(data.deadlines)}
+        </section>
+        <section class="card">
+          <h2>Programs</h2>
+          ${data.programs.map((item) => `<p>${badge(item)} <button class="secondary" type="button" data-action="open-program" data-id="${item.id}">${esc(item.university)} — ${esc(item.degree || "degree not set")}</button> ${item.stale ? `<span class="badge badge-stale">Stale verification</span>` : ""}</p>`).join("") || `<p class="hint">No programs yet.</p>`}
+          ${blocked.length ? `<h3>Blocked</h3>${blocked.map((item) => `<p>${esc(item.university)}: ${esc(item.badge)}</p>`).join("")}` : ""}
+          ${eligible.length ? `<h3>Not blocked</h3>${eligible.map((item) => `<p>${esc(item.university)}</p>`).join("")}` : ""}
+        </section>
+        <section class="card">
+          <h2>Follow-ups</h2>
+          <p class="hint">A professor follow-up is stored after the number of days you set (default 7). It is not sent.</p>
+          ${(data.followups || []).map((item) => `<p>${esc(item.professor)} · follow up ${esc(item.followup_on)} ${item.followup_due ? "(due)" : ""} · not sent</p>`).join("") || `<p class="hint">No follow-up dates yet.</p>`}
+        </section>
+      `;
+    }
+
+    function programForm(program) {
+      const value = program || {};
+      const input = (label, name, type = "text") => `<label>${label} <input name="${name}" type="${type}" value="${esc(value[name] ?? "")}"></label>`;
+      return `
+        <form id="program-form" class="fields">
+          <input type="hidden" name="id" value="${esc(value.id || "")}">
+          <div class="grid-2">
+            ${input("University", "university")}
+            ${input("Department", "department")}
+            ${input("Degree", "degree")}
+            ${input("Country", "country")}
+            ${input("Intake", "intake")}
+            ${input("Application fee", "application_fee")}
+            ${input("Language requirement", "language_requirement")}
+            ${input("GPA cutoff", "gpa_cutoff")}
+            ${input("Age limit", "age_limit", "number")}
+            ${input("Application URL", "application_url")}
+            ${input("Portal URL", "portal_url")}
+            ${input("Source URL", "source_url")}
+            ${input("SOP word limit", "sop_word_limit", "number")}
+            ${input("SOP page limit", "sop_page_limit", "number")}
+            ${input("Proposal word limit", "proposal_word_limit", "number")}
+            ${input("Proposal page limit", "proposal_page_limit", "number")}
+          </div>
+          <label>Research areas <textarea name="research_areas">${esc(value.research_areas || "")}</textarea></label>
+          <label>Requirements <textarea name="requirements_text">${esc(value.requirements_text || "")}</textarea></label>
+          <label>Notes <textarea name="notes">${esc(value.notes || "")}</textarea></label>
+          <div class="row">
+            <button type="submit">${value.id ? "Save program" : "Add program"}</button>
+          </div>
+        </form>`;
+    }
+
+    async function loadPrograms() {
+      const filters = state.filters || {};
+      const params = new URLSearchParams();
+      for (const key of ["country", "intake", "status", "deadline_from", "deadline_to"]) {
+        if (filters[key]) params.set(key, filters[key]);
+      }
+      const [programs, templates] = await Promise.all([
+        api("/api/masters/programs?" + params.toString()),
+        api("/api/masters/templates"),
+      ]);
+      state.programs = programs;
+      state.templates = templates;
+      const writing = await api("/api/masters/writing");
+      $("programs").innerHTML = `
+        <section class="card">
+          <h2>Add a program</h2>
+          ${programForm(null)}
+          <h3>Paste a public program URL</h3>
+          <p class="hint">The page is fetched with a public request. No login and no cookies. Every extracted field stays unverified until you check the source and press Verify.</p>
+          <form id="import-form" class="row">
+            <label style="flex: 1;">Program URL <input name="url" type="url" placeholder="https://university.edu/admissions/msc"></label>
+            <button type="submit">Fetch page</button>
+          </form>
+        </section>
+        <section class="card">
+          <h2>Programs</h2>
+          <form id="filter-form" class="grid-3">
+            <label>Country <input name="country" value="${esc(filters.country || "")}"></label>
+            <label>Intake <input name="intake" value="${esc(filters.intake || "")}"></label>
+            <label>Status
+              <select name="status">
+                <option value="">Any</option>
+                ${["shortlisted", "preparing", "ready_for_review", "submitted", "admitted", "rejected", "waitlisted", "withdrawn"].map((status) => `<option ${filters.status === status ? "selected" : ""}>${status}</option>`).join("")}
+              </select>
+            </label>
+            <label>Deadline from <input name="deadline_from" type="date" value="${esc(filters.deadline_from || "")}"></label>
+            <label>Deadline to <input name="deadline_to" type="date" value="${esc(filters.deadline_to || "")}"></label>
+            <div class="row" style="align-items: end;"><button type="submit">Filter</button></div>
+          </form>
+          <p class="hint">Sorted by the nearest deadline.</p>
+          <table>
+            <thead><tr><th></th><th>Program</th><th>Country</th><th>Intake</th><th>Status</th><th>Deadline</th><th>Eligibility</th><th>Check</th></tr></thead>
+            <tbody>
+              ${programs.map((item) => `
+                <tr class="${item.band ? "band-" + item.band : ""}">
+                  <td><input type="checkbox" data-compare value="${item.id}" aria-label="Compare ${esc(item.university)}"></td>
+                  <td><button class="secondary" type="button" data-action="open-program" data-id="${item.id}">${esc(item.university)}</button><div class="hint">${esc(item.degree)} · ${esc(item.department)}</div></td>
+                  <td>${esc(item.country)}</td>
+                  <td>${esc(item.intake)}</td>
+                  <td>${esc(item.status)}</td>
+                  <td>${item.next_deadline ? `<span class="band band-${esc(item.band)}">${esc(item.next_deadline)}</span>` : ""}</td>
+                  <td>${badge(item)}</td>
+                  <td>${item.verified ? (item.stale ? `<span class="badge badge-stale">Stale</span>` : "Verified") : `<span class="badge badge-unverified">Unverified</span>`}</td>
+                </tr>`).join("")}
+            </tbody>
+          </table>
+          <div class="row" style="margin-top: 12px;"><button type="button" data-action="compare-costs">Compare selected costs</button></div>
+          <div id="compare"></div>
+        </section>
+        <section class="card">
+          <h2>Master SOP and research proposal</h2>
+          <p class="hint">One master of each. Variants are drafted per program. A template draft is labeled when no model is connected.</p>
+          <form id="master-sop-form" class="fields">
+            <label>Master statement of purpose
+              <textarea name="body" data-counter="master-sop-count">${esc(writing.masters.sop.body || "")}</textarea>
+            </label>
+            <p id="master-sop-count" class="hint"></p>
+            <button type="submit">Save master SOP</button>
+          </form>
+          <form id="master-proposal-form" class="fields">
+            <label>Master research proposal
+              <textarea name="body" data-counter="master-proposal-count">${esc(writing.masters.research_proposal.body || "")}</textarea>
+            </label>
+            <p id="master-proposal-count" class="hint"></p>
+            <button type="submit">Save master research proposal</button>
+          </form>
+        </section>
+      `;
+      document.querySelectorAll("[data-counter]").forEach(updateCounter);
+    }
+
+    function updateCounter(textarea) {
+      const out = document.getElementById(textarea.dataset.counter);
+      if (!out) return;
+      const words = countWords(textarea.value);
+      const pages = words ? Math.ceil(words / 350) : 0;
+      const wordLimit = Number(textarea.dataset.wordLimit || 0);
+      const pageLimit = Number(textarea.dataset.pageLimit || 0);
+      let text = `${words} words · about ${pages} page${pages === 1 ? "" : "s"} (350 words each)`;
+      if (wordLimit) text += ` · word limit ${wordLimit}`;
+      if (pageLimit) text += ` · page limit ${pageLimit}`;
+      const over = (wordLimit && words > wordLimit) || (pageLimit && pages > pageLimit);
+      out.textContent = over ? text + " · over the limit" : text;
+      out.className = over ? "hint over" : "hint";
+    }
+
+    async function loadProgram(id) {
+      state.programId = id;
+      showSection("program");
+      const [detail, documents, templates, recommenders] = await Promise.all([
+        api("/api/masters/programs/" + id),
+        api("/api/masters/documents"),
+        api("/api/masters/templates"),
+        api("/api/masters/recommenders"),
+      ]);
+      state.documents = documents;
+      state.templates = templates;
+      const program = detail.program;
+      const docOptions = [`<option value="">No document</option>`].concat(documents.map((doc) => `<option value="${doc.id}">${esc(doc.doc_type)} v${doc.version}${doc.is_master ? " · master" : ""} · ${esc(doc.original_name)}</option>`)).join("");
+      $("program").innerHTML = `
+        <p><button class="secondary" type="button" data-action="nav" data-section="programs">All programs</button></p>
+        <section class="card">
+          <p class="eyebrow">${esc(program.country)} · ${esc(program.intake)}</p>
+          <h2>${esc(program.university)}</h2>
+          <p>${esc(program.department)} · ${esc(program.degree)}</p>
+          <div class="row">
+            ${badge(program)}
+            ${program.verified ? `<span class="badge badge-eligible">Verified ${esc((program.verified_at || "").slice(0, 10))}</span>` : `<span class="badge badge-unverified">Unverified</span>`}
+            ${program.stale ? `<span class="badge badge-stale">Stale</span>` : ""}
+            <span class="hint">Status: ${esc(program.status)}</span>
+          </div>
+          ${program.unverified ? `<p class="hint">Extracted and typed fields stay unverified until you check them against the source.</p>` : ""}
+          ${program.stale_message ? `<p class="hint over">${esc(program.stale_message)}</p>` : ""}
+          <div class="row">
+            ${program.portal_url ? `<a class="nav-link" href="${esc(program.portal_url)}" target="_blank" rel="noopener">Open portal</a>` : `<span class="hint">No portal link yet. You submit on the portal yourself.</span>`}
+            ${program.application_url ? `<a class="nav-link secondary" href="${esc(program.application_url)}" target="_blank" rel="noopener">Application page</a>` : ""}
+            ${program.source_url ? `<a class="nav-link secondary" href="${esc(program.source_url)}" target="_blank" rel="noopener">Source</a>` : ""}
+          </div>
+          <h3>Eligibility</h3>
+          <ul>${(program.eligibility.rules || []).map((rule) => `<li><strong>${esc(rule.result)}</strong> · ${esc(rule.rule)} · ${esc(rule.detail)}</li>`).join("")}</ul>
+          <h3>Edit</h3>
+          ${programForm(program)}
+          <div class="row">
+            <label>Move status
+              <select id="status-select">
+                ${["shortlisted", "preparing", "ready_for_review", "admitted", "rejected", "waitlisted", "withdrawn"].map((status) => `<option ${program.status === status ? "selected" : ""}>${status}</option>`).join("")}
+              </select>
+            </label>
+            <button type="button" data-action="save-status" data-id="${program.id}">Save status</button>
+            <button type="button" data-action="verify-program" data-id="${program.id}">I checked this against the source</button>
+            <button type="button" data-action="mark-submitted" data-id="${program.id}">I submitted this myself</button>
+            <button class="danger" type="button" data-action="delete-program" data-id="${program.id}">Delete</button>
+          </div>
+          <p class="hint">Ready for review needs every required checklist item done, and an approved SOP when an SOP item is required. Submitted is refused unless you use “I submitted this myself”.</p>
+        </section>
+        <section class="card">
+          <h2>Deadlines</h2>
+          ${deadlineBlock(detail.deadlines)}
+          <form id="deadline-form" class="grid-3">
+            <label>Type
+              <select name="type">
+                ${["application", "documents", "recommender", "scholarship", "test_score"].map((type) => `<option>${type}</option>`).join("")}
+              </select>
+            </label>
+            <label>Date <input name="date" type="date" required></label>
+            <label>Timezone <input name="timezone" value="UTC"></label>
+            <div class="row"><button type="submit">Add deadline</button></div>
+          </form>
+        </section>
+        <section class="card">
+          <h2>Checklist</h2>
+          <form id="template-form" class="row">
+            <label>Copy a template
+              <select name="template_id">
+                ${templates.map((item) => `<option value="${item.id}">${esc(item.name)}${item.country ? " · " + esc(item.country) : ""}</option>`).join("")}
+              </select>
+            </label>
+            <button type="submit">Copy onto this program</button>
+          </form>
+          ${detail.checklist.map((item) => `
+            <form class="checklist-form grid-3" data-id="${item.id}">
+              <div><strong>${esc(item.label)}</strong><div class="hint">${esc(item.kind)}${item.lor_count ? " · " + item.lor_count + " letters" : ""} · ${item.required ? "required" : "optional"}</div></div>
+              <label>Status
+                <select name="status">
+                  ${["todo", "in_progress", "done"].map((status) => `<option ${item.status === status ? "selected" : ""}>${status}</option>`).join("")}
+                </select>
+              </label>
+              <label>Document
+                <select name="document_id">${docOptions.replace(`value="${item.document_id || ""}"`, `value="${item.document_id || ""}" selected`)}</select>
+              </label>
+              <div class="row"><button type="submit">Save item</button></div>
+            </form>
+          `).join("")}
+          <h3>Custom item</h3>
+          <form id="checklist-form" class="grid-3">
+            <label>Label <input name="label" required></label>
+            <label>Kind
+              <select name="kind">
+                ${["custom", "transcript", "cv", "sop", "research_proposal", "lor", "test_score", "passport", "photo", "fee_paid"].map((kind) => `<option>${kind}</option>`).join("")}
+              </select>
+            </label>
+            <label class="check"><input name="required" type="checkbox" checked> Required</label>
+            <label>LOR count <input name="lor_count" type="number" value="2"></label>
+            <div class="row"><button type="submit">Add item</button></div>
+          </form>
+          ${(detail.blockers || []).length ? `<p class="hint over">Not ready: ${esc(detail.blockers.join(" "))}</p>` : `<p class="hint">Required items are done.</p>`}
+        </section>
+        <section class="card">
+          <h2>SOP and research proposal</h2>
+          <p class="hint">Generate a variant from the master text, your profile, and this program. The counter updates as you type. Only an approved variant can be attached.</p>
+          <div class="row">
+            <button type="button" data-action="generate-sop" data-id="${program.id}">Generate SOP variant</button>
+            <button class="secondary" type="button" data-action="generate-proposal" data-id="${program.id}">Generate research proposal variant</button>
+          </div>
+          ${(detail.writing.variants || []).map((item) => `
+            <form class="variant-form fields" data-id="${item.id}">
+              <h3>${esc(item.title)} · ${esc(item.status)} · ${esc(item.origin)}</h3>
+              <textarea name="body" data-counter="count-${item.id}" data-word-limit="${esc(item.word_limit || "")}" data-page-limit="${esc(item.page_limit || "")}">${esc(item.body || "")}</textarea>
+              <p id="count-${item.id}" class="hint"></p>
+              <div class="row">
+                <button class="secondary" type="submit">Save draft</button>
+                <button type="button" data-action="approve-writing" data-id="${item.id}">Approve</button>
+                <button type="button" data-action="edit-approve-writing" data-id="${item.id}">Edit and approve</button>
+                <button class="secondary" type="button" data-action="reject-writing" data-id="${item.id}">Reject</button>
+                <button class="secondary" type="button" data-action="attach-writing" data-id="${item.id}" ${item.status === "approved" ? "" : "disabled"}>Attach to package</button>
+              </div>
+            </form>
+          `).join("") || `<p class="hint">No variants yet.</p>`}
+        </section>
+        <section class="card">
+          <h2>Recommenders</h2>
+          ${(detail.recommenders || []).map((item) => `
+            <article class="deadline-row">
+              <strong>${esc(item.name)}</strong> · ${esc(item.title)} · ${esc(item.institution)} · ${esc(item.email)}
+              <p class="hint">Status ${esc(item.status)} · requested ${esc(item.requested_at || "—")} · due ${esc(item.due_date || "—")}. Approving an email does not mark this submitted.</p>
+              <div class="row">
+                <button type="button" data-action="draft-request" data-id="${item.id}">Draft request</button>
+                <button class="secondary" type="button" data-action="draft-recommender-reminder" data-id="${item.id}">Draft reminder</button>
+                <button class="secondary" type="button" data-action="mark-recommender" data-id="${item.id}">Mark submitted</button>
+              </div>
+            </article>
+          `).join("") || `<p class="hint">No recommenders linked yet.</p>`}
+          <form id="recommender-form" class="grid-2">
+            <label>Existing
+              <select name="recommender_id">
+                <option value="">New person</option>
+                ${recommenders.map((item) => `<option value="${item.id}">${esc(item.name)}</option>`).join("")}
+              </select>
+            </label>
+            <label>Name <input name="name"></label>
+            <label>Title <input name="title"></label>
+            <label>Institution <input name="institution"></label>
+            <label>Email <input name="email" type="email"></label>
+            <label>Due date <input name="due_date" type="date"></label>
+            <div class="row"><button type="submit">Add to this program</button></div>
+          </form>
+        </section>
+        <section class="card">
+          <h2>Professors and labs</h2>
+          <p class="hint">Follow-up after N days with no reply is stored, default 7. The follow-up email is a draft until you approve it, and it is still not sent for you.</p>
+          ${(detail.professors || []).map((item) => `
+            <article class="deadline-row">
+              <strong>${esc(item.professor)}</strong> · ${esc(item.lab)} · ${esc(item.university)}
+              <p class="hint">${esc(item.research_area)} · ${esc(item.status)} · follow-up after ${esc(item.followup_after_days)} days ${item.followup_on ? "on " + esc(item.followup_on) : ""} · not sent</p>
+              <div class="row">
+                <button type="button" data-action="draft-contact" data-id="${item.id}">Draft contact email</button>
+                <button class="secondary" type="button" data-action="draft-followup" data-id="${item.id}">Draft follow-up</button>
+                <button class="danger" type="button" data-action="delete-professor" data-id="${item.id}">Delete</button>
+              </div>
+            </article>
+          `).join("")}
+          <form id="professor-form" class="grid-2">
+            <label>Professor <input name="professor" required></label>
+            <label>Lab <input name="lab"></label>
+            <label>University <input name="university" value="${esc(program.university)}"></label>
+            <label>Research area <input name="research_area"></label>
+            <label>Status
+              <select name="status">${["identified", "emailed", "replied", "meeting", "no_response"].map((status) => `<option>${status}</option>`).join("")}</select>
+            </label>
+            <label>Follow-up after days <input name="followup_after_days" type="number" value="7"></label>
+            <label>Emailed on <input name="emailed_at" type="date"></label>
+            <div class="row"><button type="submit">Add professor</button></div>
+          </form>
+        </section>
+        <section class="card">
+          <h2>Scholarships on this program</h2>
+          ${(detail.scholarships || []).map((item) => {
+            const conflict = (item.conflicts || []).find((row) => row.program_id === program.id);
+            return `<p><strong>${esc(item.name)}</strong> · deadline ${esc(item.deadline || "—")} ${conflict && conflict.conflict ? `<span class="badge badge-blocked">${esc(conflict.reason)}</span>` : ""}</p>`;
+          }).join("") || `<p class="hint">Link scholarships from the Scholarships section.</p>`}
+        </section>
+        <section class="card">
+          <h2>Tests against this program</h2>
+          ${(detail.tests || []).map((item) => `<p>${esc(item.reason)} ${item.expires_before_deadline ? `<span class="badge badge-blocked">Expires before the deadline</span>` : ""}</p>`).join("") || `<p class="hint">No scores recorded.</p>`}
+        </section>
+        <section class="card">
+          <h2>Cost sheet</h2>
+          <form id="cost-form" class="grid-3">
+            ${["application_fee", "test_fees", "tuition", "living_cost", "funding_amount"].map((name) => `<label>${name.replaceAll("_", " ")} <input name="${name}" type="number" step="0.01" value="${esc(detail.costs[name] ?? 0)}"></label>`).join("")}
+            <div class="row"><button type="submit">Save costs</button></div>
+          </form>
+          <p>Total ${Number(detail.costs.total || 0).toLocaleString()} · net ${Number(detail.costs.net || 0).toLocaleString()}</p>
+        </section>
+        <section class="card" id="package-card">
+          <h2>Submission package</h2>
+          <p class="hint">You open the portal and submit. This page only records that you did. Package approval is a review, not a submission.</p>
+          <p>Package status: ${esc(detail.package.status)}</p>
+          <p>Portal: ${detail.package.portal_url ? `<a href="${esc(detail.package.portal_url)}" target="_blank" rel="noopener">${esc(detail.package.portal_url)}</a>` : "not set"}</p>
+          <h3>Approved SOP</h3>
+          <p>${detail.package.sop_variant ? esc(detail.package.sop_variant.title) : "None attached."}</p>
+          <h3>Documents</h3>
+          ${(detail.package.documents || []).map((doc) => `<p>${esc(doc.doc_type)} v${doc.version} · ${esc(doc.original_name)}</p>`).join("") || `<p class="hint">Link documents from the checklist.</p>`}
+          <div class="row">
+            <button type="button" data-action="approve-package" data-id="${program.id}">Approve package</button>
+            <button class="secondary" type="button" data-action="reject-package" data-id="${program.id}">Reject package</button>
+          </div>
+        </section>
+      `;
+      document.querySelectorAll("[data-counter]").forEach(updateCounter);
+    }
+
+    async function loadVault() {
+      const documents = await api("/api/masters/documents");
+      state.documents = documents;
+      $("vault").innerHTML = `
+        <section class="card">
+          <h2>Document vault</h2>
+          <p class="hint">PDF or image, up to 8 MB. Master documents (transcript, CV, passport, certificates) can be linked from more than one program.</p>
+          <form id="upload-form" class="grid-2">
+            <label>File <input name="file" type="file" accept="application/pdf,image/png,image/jpeg,image/gif,image/webp" required></label>
+            <label>Type
+              <select name="doc_type">
+                ${["transcript", "cv", "passport", "certificate", "photo", "sop", "research_proposal", "other"].map((type) => `<option>${type}</option>`).join("")}
+              </select>
+            </label>
+            <label class="check"><input name="is_master" type="checkbox"> Master document, reusable across programs</label>
+            <div class="row"><button type="submit">Upload</button></div>
+          </form>
+        </section>
+        <section class="card">
+          ${documents.map((doc) => `
+            <article class="deadline-row">
+              <strong>${esc(doc.doc_type)} v${doc.version}</strong> ${doc.is_master ? `<span class="badge badge-eligible">Master</span>` : ""}
+              <p class="hint">${esc(doc.original_name)} · ${esc(doc.uploaded_at.slice(0, 10))} · ${doc.size_bytes} bytes</p>
+              <p class="hint">Used by: ${(doc.programs || []).map((item) => esc(item.university)).join(", ") || "no program yet"}</p>
+              <div class="row">
+                <a class="nav-link secondary" href="/api/masters/documents/${doc.id}/file">Open file</a>
+                <button class="danger" type="button" data-action="delete-document" data-id="${doc.id}">Delete</button>
+              </div>
+            </article>
+          `).join("") || `<p class="hint">The vault is empty.</p>`}
+        </section>
+      `;
+    }
+
+    async function loadScholarships() {
+      const [rows, programs] = await Promise.all([api("/api/masters/scholarships"), api("/api/masters/programs")]);
+      state.programs = programs;
+      $("scholarships").innerHTML = `
+        <section class="card">
+          <h2>Add a scholarship</h2>
+          <form id="scholarship-form" class="fields">
+            <div class="grid-2">
+              <label>Name <input name="name" required></label>
+              <label>Provider <input name="provider"></label>
+              <label>Amount <input name="amount"></label>
+              <label>Deadline <input name="deadline" type="date"></label>
+              <label>Language requirement <input name="language_requirement" placeholder="IELTS 6.5"></label>
+              <label>Can combine with <input name="can_combine_with"></label>
+            </div>
+            <label>Eligibility <textarea name="eligibility" placeholder="GPA 3.0 or higher"></textarea></label>
+            <label class="check"><input name="requires_admission" type="checkbox"> Requires admission</label>
+            <label>Link to programs
+              <select name="program_ids" multiple size="4">
+                ${programs.map((item) => `<option value="${item.id}">${esc(item.university)}</option>`).join("")}
+              </select>
+            </label>
+            <button type="submit">Save scholarship</button>
+          </form>
+        </section>
+        <section class="card">
+          ${rows.map((item) => `
+            <article class="deadline-row ${item.conflict ? "band-overdue" : ""}">
+              <strong>${esc(item.name)}</strong> · ${esc(item.provider)} · ${esc(item.amount)}
+              <p class="hint">Deadline ${esc(item.deadline || "—")} · ${item.requires_admission ? "requires admission" : "admission not required"} · ${esc(item.language_requirement)}</p>
+              <p class="hint">${esc(item.eligibility)} ${item.can_combine_with ? "· combines with " + esc(item.can_combine_with) : ""}</p>
+              <p>${badge({ eligibility: item.eligibility_check })}</p>
+              ${(item.conflicts || []).filter((row) => row.conflict).map((row) => `<p class="badge badge-blocked">${esc(row.reason)}</p>`).join("")}
+              <button class="danger" type="button" data-action="delete-scholarship" data-id="${item.id}">Delete</button>
+            </article>
+          `).join("") || `<p class="hint">No scholarships yet. Their deadlines show up with the other deadlines.</p>`}
+        </section>
+      `;
+    }
+
+    async function loadTests() {
+      const rows = await api("/api/masters/tests");
+      $("tests").innerHTML = `
+        <section class="card">
+          <h2>Test scores</h2>
+          <form id="test-form" class="grid-3">
+            <label>Type
+              <select name="test_type">${["IELTS", "TOEFL", "GRE", "JLPT"].map((type) => `<option>${type}</option>`).join("")}</select>
+            </label>
+            <label>Date <input name="test_date" type="date"></label>
+            <label>Expiry <input name="expiry" type="date"></label>
+            <label>Overall score <input name="score" placeholder="7.0 or 100"></label>
+            <label>JLPT level <input name="level" placeholder="N2"></label>
+            <div class="row"><button type="submit">Save score</button></div>
+          </form>
+        </section>
+        <section class="card">
+          ${rows.map((item) => `
+            <article>
+              <h3>${esc(item.test_type)} · ${esc(item.test_date || "date not set")} · expires ${esc(item.expiry || "—")}</h3>
+              <p class="hint">${esc(JSON.stringify(item.scores))}</p>
+              ${(item.programs || []).map((fit) => `<p>${esc(fit.university)}: ${esc(fit.reason)} ${fit.expires_before_deadline ? `<span class="badge badge-blocked">Expires before deadline</span>` : ""} ${fit.satisfies ? `<span class="badge badge-eligible">Satisfies</span>` : ""}</p>`).join("")}
+              <button class="danger" type="button" data-action="delete-test" data-id="${item.id}">Delete</button>
+            </article>
+          `).join("") || `<p class="hint">No scores yet.</p>`}
+        </section>
+      `;
+    }
+
+    async function loadProfile() {
+      const profile = await api("/api/masters/profile");
+      const levels = profile.language_levels || {};
+      $("profile").innerHTML = `
+        <section class="card">
+          <h2>Academic profile</h2>
+          <p class="hint">Compared with program and scholarship rules. A missing fact stays unknown and does not block you. Name on the job finder profile: ${esc(profile.name || "not set")}.</p>
+          <form id="profile-form" class="grid-2">
+            <label>GPA <input name="gpa" value="${esc(profile.gpa ?? "")}"></label>
+            <label>GPA scale <input name="gpa_scale" value="${esc(profile.gpa_scale ?? "")}"></label>
+            <label>Degree <input name="degree" value="${esc(profile.degree || "")}"></label>
+            <label>Graduation date <input name="graduation_date" type="date" value="${esc(profile.graduation_date || "")}"></label>
+            <label>Age <input name="age" type="number" value="${esc(profile.age ?? "")}"></label>
+            <label>Publications <input name="publications" type="number" value="${esc(profile.publications ?? "")}"></label>
+            <label>IELTS <input name="IELTS" value="${esc(levels.IELTS ?? "")}"></label>
+            <label>TOEFL <input name="TOEFL" value="${esc(levels.TOEFL ?? "")}"></label>
+            <label>GRE <input name="GRE" value="${esc(levels.GRE ?? "")}"></label>
+            <label>JLPT <input name="JLPT" placeholder="N2" value="${esc(levels.JLPT ?? "")}"></label>
+            <div class="row"><button type="submit">Save profile</button></div>
+          </form>
+        </section>
+      `;
+    }
+
+    function queueEditor(item) {
+      if (item.queue_type === "package") {
+        return `
+          <article class="card">
+            <h3>Package · ${esc(item.title)}</h3>
+            <p class="hint">Approving reviews the package. It does not submit the application.</p>
+            <div class="row">
+              <button type="button" data-action="approve-package" data-id="${item.program_id}">Approve</button>
+              <button class="secondary" type="button" data-action="reject-package" data-id="${item.program_id}">Reject</button>
+              <button class="secondary" type="button" data-action="open-program" data-id="${item.program_id}">Open program</button>
+            </div>
+          </article>`;
+      }
+      if (item.queue_type === "email") {
+        return `
+          <article class="card">
+            <h3>Email draft · ${esc(item.kind)}</h3>
+            <form class="email-approve fields" data-id="${item.id}">
+              <label>Subject <input name="subject" value="${esc(item.subject || "")}"></label>
+              <label>Body <textarea class="copy-box" name="body">${esc(item.body || "")}</textarea></label>
+              <p class="hint">Approving means ready for you to copy. It does not mark the email sent.</p>
+              <div class="row">
+                <button type="button" data-action="approve-email" data-id="${item.id}">Approve</button>
+                <button type="button" data-action="edit-approve-email" data-id="${item.id}">Edit and approve</button>
+                <button class="secondary" type="button" data-action="reject-email" data-id="${item.id}">Reject</button>
+              </div>
+            </form>
+          </article>`;
+      }
+      return `
+        <article class="card">
+          <h3>${esc(item.kind)} variant · ${esc(item.program_label)}</h3>
+          <form class="writing-approve fields" data-id="${item.id}">
+            <label>Draft <textarea name="body" data-counter="queue-count-${item.id}" data-word-limit="${esc(item.word_limit || "")}">${esc(item.body || "")}</textarea></label>
+            <p id="queue-count-${item.id}" class="hint"></p>
+            <div class="row">
+              <button type="button" data-action="approve-writing" data-id="${item.id}">Approve</button>
+              <button type="button" data-action="edit-approve-writing" data-id="${item.id}">Edit and approve</button>
+              <button class="secondary" type="button" data-action="reject-writing" data-id="${item.id}">Reject</button>
+            </div>
+          </form>
+        </article>`;
+    }
+
+    async function loadApprovals() {
+      const [queue, emails, audit] = await Promise.all([
+        api("/api/masters/approvals"),
+        api("/api/masters/emails"),
+        api("/api/masters/audit"),
+      ]);
+      const ready = emails.filter((item) => item.status === "approved" && !item.sent_at);
+      $("approvals").innerHTML = `
+        <section class="card">
+          <h2>Waiting for you</h2>
+          <p class="hint">${queue.length} item${queue.length === 1 ? "" : "s"}. The actor on the audit log is you.</p>
+          ${queue.map(queueEditor).join("") || `<p class="hint">Nothing is waiting.</p>`}
+        </section>
+        <section class="card" id="copy-ready">
+          <h2>Ready to copy</h2>
+          <p class="hint">SMTP is not used from this page. Approved text stays here for you to copy. Nothing is marked sent.</p>
+          ${ready.map((item) => `
+            <article>
+              <h3>${esc(item.subject)}</h3>
+              <textarea class="copy-box" id="copy-${item.id}" readonly>${esc(item.body)}</textarea>
+              <button class="secondary" type="button" data-action="copy-text" data-id="${item.id}">Copy</button>
+            </article>
+          `).join("") || `<p class="hint">Approve a draft to see it here.</p>`}
+        </section>
+        <section class="card">
+          <h2>Audit log</h2>
+          ${audit.map((item) => `<p class="hint">${esc(item.created_at)} · ${esc(item.actor)} · ${esc(item.action)} · ${esc(item.subject_type)} ${esc(item.subject_id)} · ${esc(item.detail)}</p>`).join("") || `<p class="hint">No actions yet.</p>`}
+        </section>
+      `;
+      document.querySelectorAll("[data-counter]").forEach(updateCounter);
+    }
+
+    function formData(form) {
+      const data = {};
+      for (const [key, value] of new FormData(form).entries()) {
+        if (data[key] !== undefined) {
+          data[key] = [].concat(data[key], value);
+        } else {
+          data[key] = value;
+        }
+      }
+      return data;
+    }
+
+    function variantBody(id) {
+      const form = document.querySelector(`.variant-form[data-id="${id}"], .writing-approve[data-id="${id}"]`);
+      return form ? form.querySelector("[name=body]").value : null;
+    }
+
+    function emailFields(id) {
+      const form = document.querySelector(`.email-approve[data-id="${id}"]`);
+      if (!form) return {};
+      return { subject: form.querySelector("[name=subject]").value, body: form.querySelector("[name=body]").value };
+    }
+
+    async function onClick(event) {
+      const button = event.target.closest("[data-action]");
+      if (!button || button.type === "submit") return;
+      const action = button.dataset.action;
+      const id = button.dataset.id;
+      try {
+        if (action === "nav") {
+          await openSection(button.dataset.section);
+          return;
+        }
+        if (action === "open-program") {
+          await loadProgram(id);
+          return;
+        }
+        if (action === "save-status") {
+          await api(`/api/masters/programs/${id}/status`, { method: "POST", body: { status: $("status-select").value } });
+          showBanner("Status saved. Submitted still needs the explicit mark.", true);
+          await loadProgram(id);
+          return;
+        }
+        if (action === "verify-program") {
+          await api(`/api/masters/programs/${id}/verify`, { method: "POST", body: {} });
+          showBanner("Marked verified at this moment. Check again if this gets older than 90 days.", true);
+          await loadProgram(id);
+          return;
+        }
+        if (action === "mark-submitted") {
+          await api(`/api/masters/programs/${id}/mark-submitted`, { method: "POST", body: {} });
+          showBanner("Recorded as submitted because you said you sent it yourself.", true);
+          await loadProgram(id);
+          return;
+        }
+        if (action === "delete-program") {
+          await api(`/api/masters/programs/${id}`, { method: "DELETE" });
+          showBanner("Program deleted.", true);
+          await openSection("programs");
+          return;
+        }
+        if (action === "delete-deadline") {
+          await api(`/api/masters/deadlines/${id}`, { method: "DELETE" });
+          await loadProgram(state.programId);
+          return;
+        }
+        if (action === "draft-reminder") {
+          const email = await api(`/api/masters/reminders/${id}/email-draft`, { method: "POST", body: {} });
+          showBanner("Reminder email drafted. It is not sent.", true);
+          state.copyHint = email;
+          await openSection("approvals");
+          return;
+        }
+        if (action === "generate-sop" || action === "generate-proposal") {
+          const kind = action === "generate-sop" ? "sop" : "research_proposal";
+          await api(`/api/masters/programs/${id}/writing/${kind}`, { method: "POST", body: {} });
+          showBanner("Variant drafted. Approve it before it can go in a package.", true);
+          await loadProgram(id);
+          return;
+        }
+        if (action === "approve-writing") {
+          await api(`/api/masters/writing/${id}/approve`, { method: "POST", body: {} });
+          showBanner("Variant approved. You can attach it. Nothing was submitted.", true);
+          if (state.section === "approvals") await loadApprovals();
+          else await loadProgram(state.programId);
+          return;
+        }
+        if (action === "edit-approve-writing") {
+          await api(`/api/masters/writing/${id}/approve`, { method: "POST", body: { body: variantBody(id) } });
+          showBanner("Edited text approved.", true);
+          if (state.section === "approvals") await loadApprovals();
+          else await loadProgram(state.programId);
+          return;
+        }
+        if (action === "reject-writing") {
+          await api(`/api/masters/writing/${id}/reject`, { method: "POST", body: {} });
+          if (state.section === "approvals") await loadApprovals();
+          else await loadProgram(state.programId);
+          return;
+        }
+        if (action === "attach-writing") {
+          await api(`/api/masters/programs/${state.programId}/package/attach`, { method: "POST", body: { writing_id: Number(id) } });
+          showBanner("Approved variant attached to the package.", true);
+          await loadProgram(state.programId);
+          return;
+        }
+        if (action === "approve-package") {
+          await api(`/api/masters/programs/${id}/package/approve`, { method: "POST", body: {} });
+          showBanner("Package approved for your review. You still submit it yourself.", true);
+          if (state.section === "approvals") await loadApprovals();
+          else await loadProgram(id);
+          return;
+        }
+        if (action === "reject-package") {
+          await api(`/api/masters/programs/${id}/package/reject`, { method: "POST", body: {} });
+          if (state.section === "approvals") await loadApprovals();
+          else await loadProgram(id);
+          return;
+        }
+        if (action === "draft-request" || action === "draft-recommender-reminder") {
+          const kind = action === "draft-request" ? "request" : "reminder";
+          await api(`/api/masters/recommender-assignments/${id}/draft/${kind}`, { method: "POST", body: {} });
+          showBanner("Email drafted. Approving it will not mark the recommendation submitted, and it will not send.", true);
+          await openSection("approvals");
+          return;
+        }
+        if (action === "mark-recommender") {
+          await api(`/api/masters/recommender-assignments/${id}/mark-submitted`, { method: "POST", body: {} });
+          showBanner("Recommendation marked submitted by you.", true);
+          await loadProgram(state.programId);
+          return;
+        }
+        if (action === "draft-contact" || action === "draft-followup") {
+          const kind = action === "draft-contact" ? "contact" : "followup";
+          await api(`/api/masters/professors/${id}/draft/${kind}`, { method: "POST", body: {} });
+          showBanner("Contact draft is waiting for approval. It has not been sent.", true);
+          await openSection("approvals");
+          return;
+        }
+        if (action === "delete-professor") {
+          await api(`/api/masters/professors/${id}`, { method: "DELETE" });
+          await loadProgram(state.programId);
+          return;
+        }
+        if (action === "delete-document") {
+          await api(`/api/masters/documents/${id}`, { method: "DELETE" });
+          await loadVault();
+          return;
+        }
+        if (action === "delete-scholarship") {
+          await api(`/api/masters/scholarships/${id}`, { method: "DELETE" });
+          await loadScholarships();
+          return;
+        }
+        if (action === "delete-test") {
+          await api(`/api/masters/tests/${id}`, { method: "DELETE" });
+          await loadTests();
+          return;
+        }
+        if (action === "approve-email") {
+          await api(`/api/masters/emails/${id}/approve`, { method: "POST", body: {} });
+          showBanner("Approved. The text is ready to copy. It was not sent.", true);
+          await loadApprovals();
+          return;
+        }
+        if (action === "edit-approve-email") {
+          await api(`/api/masters/emails/${id}/approve`, { method: "POST", body: emailFields(id) });
+          showBanner("Edited and approved. Copy it when you want to send it yourself.", true);
+          await loadApprovals();
+          return;
+        }
+        if (action === "reject-email") {
+          await api(`/api/masters/emails/${id}/reject`, { method: "POST", body: {} });
+          await loadApprovals();
+          return;
+        }
+        if (action === "copy-text") {
+          const box = $("copy-" + id);
+          box.focus();
+          box.select();
+          try { await navigator.clipboard.writeText(box.value); } catch (error) { /* the selected text is still there to copy */ }
+          showBanner("The approved draft is selected so you can copy it. Nothing was sent.", true);
+          return;
+        }
+        if (action === "compare-costs") {
+          const ids = [...document.querySelectorAll("[data-compare]:checked")].map((box) => Number(box.value));
+          const comparison = await api("/api/masters/costs/compare", { method: "POST", body: { program_ids: ids } });
+          $("compare").innerHTML = `
+            <table>
+              <thead><tr><th>Program</th><th>Fee</th><th>Tests</th><th>Tuition</th><th>Living</th><th>Funding</th><th>Total</th><th>Net</th></tr></thead>
+              <tbody>
+                ${comparison.programs.map((item) => `<tr><td>${esc(item.university)}</td><td>${item.application_fee}</td><td>${item.test_fees}</td><td>${item.tuition}</td><td>${item.living_cost}</td><td>${item.funding_amount}</td><td>${item.total}</td><td>${item.net}</td></tr>`).join("")}
+              </tbody>
+            </table>
+            <p class="hint">Lowest net cost is program ${comparison.lowest_net_program_id}.</p>`;
+        }
+      } catch (error) {
+        showBanner(error.message);
+      }
+    }
+
+    async function onSubmit(event) {
+      const form = event.target;
+      if (!(form instanceof HTMLFormElement)) return;
+      event.preventDefault();
+      const data = formData(form);
+      // An input named "id" shadows the form's id property, so read the attribute.
+      const formId = form.getAttribute("id") || "";
+      try {
+        if (formId === "program-form") {
+          const payload = { ...data };
+          delete payload.id;
+          if (data.id) {
+            await api("/api/masters/programs/" + data.id, { method: "PUT", body: payload });
+            showBanner("Program saved. Verification did not change.", true);
+            await loadProgram(data.id);
+          } else {
+            const created = await api("/api/masters/programs", { method: "POST", body: payload });
+            showBanner("Program added. Fields you did not verify stay unverified.", true);
+            await loadProgram(created.id);
+          }
+          return;
+        }
+        if (formId === "import-form") {
+          const created = await api("/api/masters/programs/import", { method: "POST", body: { url: data.url } });
+          showBanner("Page fetched. Extracted fields are unverified.", true);
+          await loadProgram(created.id);
+          return;
+        }
+        if (formId === "filter-form") {
+          state.filters = data;
+          await loadPrograms();
+          return;
+        }
+        if (formId === "master-sop-form" || formId === "master-proposal-form") {
+          const kind = formId === "master-sop-form" ? "sop" : "research_proposal";
+          await api("/api/masters/writing/master/" + kind, { method: "PUT", body: { body: data.body } });
+          showBanner("Master text saved.", true);
+          return;
+        }
+        if (formId === "deadline-form") {
+          await api(`/api/masters/programs/${state.programId}/deadlines`, { method: "POST", body: data });
+          showBanner("Deadline saved with in-app reminders at 30, 14, 7, 3, and 1 days.", true);
+          await loadProgram(state.programId);
+          return;
+        }
+        if (formId === "template-form") {
+          await api(`/api/masters/programs/${state.programId}/checklist/apply`, { method: "POST", body: { template_id: Number(data.template_id) } });
+          await loadProgram(state.programId);
+          return;
+        }
+        if (form.classList.contains("checklist-form")) {
+          await api("/api/masters/checklist/" + form.dataset.id, {
+            method: "PUT",
+            body: { status: data.status, document_id: data.document_id || null },
+          });
+          await loadProgram(state.programId);
+          return;
+        }
+        if (formId === "checklist-form") {
+          await api(`/api/masters/programs/${state.programId}/checklist`, {
+            method: "POST",
+            body: {
+              label: data.label,
+              kind: data.kind,
+              required: form.querySelector("[name=required]").checked,
+              lor_count: data.kind === "lor" ? Number(data.lor_count || 2) : null,
+            },
+          });
+          await loadProgram(state.programId);
+          return;
+        }
+        if (form.classList.contains("variant-form")) {
+          await api("/api/masters/writing/" + form.dataset.id, { method: "PUT", body: { body: data.body } });
+          showBanner("Draft saved.", true);
+          await loadProgram(state.programId);
+          return;
+        }
+        if (formId === "recommender-form") {
+          let recommenderId = data.recommender_id;
+          if (!recommenderId) {
+            const created = await api("/api/masters/recommenders", { method: "POST", body: data });
+            recommenderId = created.id;
+          }
+          await api(`/api/masters/recommenders/${recommenderId}/assignments`, {
+            method: "POST",
+            body: { program_id: state.programId, due_date: data.due_date || null },
+          });
+          await loadProgram(state.programId);
+          return;
+        }
+        if (formId === "professor-form") {
+          await api("/api/masters/professors", { method: "POST", body: { ...data, program_id: state.programId } });
+          await loadProgram(state.programId);
+          return;
+        }
+        if (formId === "cost-form") {
+          await api(`/api/masters/programs/${state.programId}/costs`, { method: "PUT", body: data });
+          await loadProgram(state.programId);
+          return;
+        }
+        if (formId === "upload-form") {
+          const body = new FormData();
+          body.append("file", form.querySelector("[name=file]").files[0]);
+          body.append("doc_type", data.doc_type);
+          body.append("is_master", form.querySelector("[name=is_master]").checked ? "true" : "false");
+          await api("/api/masters/documents", { method: "POST", body });
+          showBanner("File stored in the vault.", true);
+          await loadVault();
+          return;
+        }
+        if (formId === "scholarship-form") {
+          const selected = [...form.querySelector("[name=program_ids]").selectedOptions].map((option) => Number(option.value));
+          await api("/api/masters/scholarships", {
+            method: "POST",
+            body: {
+              ...data,
+              requires_admission: form.querySelector("[name=requires_admission]").checked,
+              program_ids: selected,
+            },
+          });
+          showBanner("Scholarship saved. A deadline earlier than the program application deadline is flagged.", true);
+          await loadScholarships();
+          return;
+        }
+        if (formId === "test-form") {
+          await api("/api/masters/tests", { method: "POST", body: data });
+          await loadTests();
+          return;
+        }
+        if (formId === "profile-form") {
+          await api("/api/masters/profile", {
+            method: "PUT",
+            body: {
+              gpa: data.gpa,
+              gpa_scale: data.gpa_scale,
+              degree: data.degree,
+              graduation_date: data.graduation_date,
+              age: data.age,
+              publications: data.publications,
+              language_levels: { IELTS: data.IELTS, TOEFL: data.TOEFL, GRE: data.GRE, JLPT: data.JLPT },
+            },
+          });
+          showBanner("Academic profile saved.", true);
+        }
+      } catch (error) {
+        showBanner(error.message);
+      }
+    }
+
+    document.addEventListener("click", onClick);
+    document.addEventListener("submit", onSubmit);
+    document.addEventListener("input", (event) => {
+      if (event.target.dataset && event.target.dataset.counter) updateCounter(event.target);
+    });
+    openSection("dashboard").catch((error) => showBanner(error.message));
+  </script>
+</body>
+</html>

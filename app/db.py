@@ -13,6 +13,7 @@ DEFAULT_PROFILE = {
     "name": "",
     "contact": "",
     "titles": [],
+    "seeking": [],
     "must_have": [],
     "nice_have": [],
     "city": "Dhaka",
@@ -83,6 +84,9 @@ def init() -> None:
                 "INSERT INTO profile (id, data) VALUES (1, ?)",
                 (json.dumps(DEFAULT_PROFILE),),
             )
+        from app.onboarding.migrate import apply
+
+        apply(connection)
 
 
 def _loads(value, fallback):
@@ -123,6 +127,7 @@ def normalize_profile(data: dict) -> dict:
         "name": str(data.get("name") or "").strip(),
         "contact": str(data.get("contact") or "").strip(),
         "titles": split_terms(data.get("titles")),
+        "seeking": split_terms(data.get("seeking")),
         "must_have": split_terms(data.get("must_have")),
         "nice_have": split_terms(data.get("nice_have")),
         "city": city,
@@ -155,18 +160,112 @@ def get_settings() -> dict:
         "base_url": stored.get("base_url", ""),
         "model": stored.get("model", ""),
         "api_key": stored.get("api_key", ""),
+        "preset_provider": stored.get("preset_provider", ""),
+        "preset_model": stored.get("preset_model", ""),
+        "use_preset": stored.get("use_preset", "1") == "1",
     }
+
+
+def get_effective_api_key(settings: dict, provider_id: str = "") -> str:
+    """Get API key from environment variables or saved settings.
+    
+    Checks environment variable first (GROQ_API_KEY, OPENROUTER_API_KEY),
+    then falls back to saved key in database.
+    """
+    import os
+    
+    # Try environment variable first if using preset
+    if provider_id:
+        from app import model_presets
+        provider_config = model_presets.PROVIDERS.get(provider_id)
+        if provider_config:
+            env_key = os.environ.get(provider_config["env_key"], "").strip()
+            if env_key:
+                return env_key
+    
+    # Fall back to saved key
+    return settings.get("api_key", "")
 
 
 def public_settings() -> dict:
+    from app import model_presets
+    
     settings = get_settings()
-    key = settings["api_key"]
+    use_preset = settings.get("use_preset", False)
+    
+    # If using preset, resolve it and check for key (env var or saved)
+    if use_preset:
+        provider_id = settings.get("preset_provider", "")
+        model_id = settings.get("preset_model", "")
+        
+        if provider_id and model_id:
+            resolved = model_presets.resolve_preset(provider_id, model_id)
+            if resolved:
+                # Check for key from env var or saved settings
+                effective_key = get_effective_api_key(settings, provider_id)
+                ready = bool(effective_key)
+                
+                # Show hint based on key source
+                key_hint = ""
+                if ready:
+                    import os
+                    provider_config = model_presets.PROVIDERS.get(provider_id)
+                    env_var_name = provider_config["env_key"] if provider_config else ""
+                    if os.environ.get(env_var_name, "").strip():
+                        key_hint = f"env:{env_var_name}"
+                    elif len(effective_key) >= 4:
+                        key_hint = f"····{effective_key[-4:]}"
+                    else:
+                        key_hint = "saved"
+                
+                note = ""
+                if not ready:
+                    from app.llm import NO_MODEL
+                    note = NO_MODEL
+                
+                return {
+                    "use_preset": True,
+                    "preset_provider": provider_id,
+                    "preset_model": model_id,
+                    "base_url": resolved["base_url"],
+                    "model": resolved["model"],
+                    "has_key": ready,
+                    "key_hint": key_hint,
+                    "configured": ready,
+                    "model_note": note,
+                }
+    
+    # Using advanced/custom settings or no preset selected
+    base_url = settings.get("base_url", "")
+    model = settings.get("model", "")
+    saved_key = settings.get("api_key", "")
+    ready = bool(base_url and model and saved_key)
+    note = ""
+    if not ready:
+        from app.llm import NO_MODEL
+        note = NO_MODEL
+    
     return {
-        "base_url": settings["base_url"],
-        "model": settings["model"],
-        "has_key": bool(key),
-        "key_hint": f"····{key[-4:]}" if len(key) >= 4 else ("saved" if key else ""),
+        "use_preset": False,
+        "preset_provider": "",
+        "preset_model": "",
+        "base_url": base_url,
+        "model": model,
+        "has_key": bool(saved_key),
+        "key_hint": f"····{saved_key[-4:]}" if len(saved_key) >= 4 else ("saved" if saved_key else ""),
+        "configured": ready,
+        "model_note": note,
     }
+
+
+def _write_settings(values: dict[str, str]) -> None:
+    init()
+    with _LOCK, _connect() as connection:
+        for name, value in values.items():
+            connection.execute(
+                "INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+                (name, value),
+            )
 
 
 def save_settings(base_url: str, model: str, api_key: str | None, clear_key: bool) -> dict:
@@ -177,18 +276,73 @@ def save_settings(base_url: str, model: str, api_key: str | None, clear_key: boo
         key = current["api_key"]
     else:
         key = api_key.strip()
-    values = {
+    _write_settings({
         "base_url": base_url.strip().rstrip("/"),
         "model": model.strip(),
         "api_key": key,
-    }
-    with _LOCK, _connect() as connection:
-        for name, value in values.items():
-            connection.execute(
-                "INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
-                (name, value),
-            )
+        "use_preset": "0",  # Using advanced/custom settings
+        "preset_provider": "",
+        "preset_model": "",
+    })
     return public_settings()
+
+
+def save_preset_settings(provider_id: str, model_id: str, api_key: str | None = None, clear_key: bool = False) -> dict:
+    """Save preset provider and model selection, optionally with API key."""
+    from app import model_presets
+    
+    resolved = model_presets.resolve_preset(provider_id, model_id)
+    if not resolved:
+        # Invalid preset
+        return public_settings()
+    
+    current = get_settings()
+    if clear_key:
+        key = ""
+    elif api_key is not None and api_key != "":
+        key = api_key.strip()
+    else:
+        key = current.get("api_key", "")
+    
+    _write_settings({
+        "preset_provider": provider_id,
+        "preset_model": model_id,
+        "use_preset": "1",
+        "base_url": resolved["base_url"],
+        "model": resolved["model"],
+        "api_key": key,
+    })
+    return public_settings()
+
+
+def get_feed_settings() -> dict:
+    init()
+    with _LOCK, _connect() as connection:
+        rows = connection.execute(
+            "SELECT key, value FROM settings WHERE key IN ('auto_refresh', 'last_feed_at', 'last_feed_added')"
+        ).fetchall()
+    stored = {row["key"]: row["value"] for row in rows}
+    raw_added = stored.get("last_feed_added", "")
+    try:
+        added = int(raw_added) if raw_added != "" else None
+    except ValueError:
+        added = None
+    return {
+        "auto_refresh": stored.get("auto_refresh", "1") != "0",
+        "last_feed_at": stored.get("last_feed_at", ""),
+        "last_feed_added": added,
+    }
+
+
+def set_auto_refresh(enabled: bool) -> None:
+    _write_settings({"auto_refresh": "1" if enabled else "0"})
+
+
+def mark_feed_refreshed(added: int) -> None:
+    _write_settings({
+        "last_feed_at": _now(),
+        "last_feed_added": str(int(added)),
+    })
 
 
 def add_message(role: str, content: str) -> None:
@@ -232,21 +386,18 @@ def cache_set(key: str, body: str) -> None:
         )
 
 
-def store_search(jobs: list[dict]) -> None:
+def store_search(jobs: list[dict]) -> int:
+    """Insert listings and refresh details for ones already stored.
+
+    Leads that are missing from this batch stay on the board. Status, the edited
+    resume, and the cover note are left as they are. Returns how many rows were new.
+    """
     init()
     now = _now()
-    ids = [job["id"] for job in jobs]
+    added = 0
     with _LOCK, _connect() as connection:
-        if ids:
-            marks = ",".join("?" for _ in ids)
-            connection.execute(
-                f"DELETE FROM jobs WHERE status = 'new' AND source != 'LinkedIn' AND id NOT IN ({marks})",
-                ids,
-            )
-        else:
-            connection.execute("DELETE FROM jobs WHERE status = 'new' AND source != 'LinkedIn'")
         for job in jobs:
-            existing = connection.execute("SELECT * FROM jobs WHERE id = ?", (job["id"],)).fetchone()
+            existing = connection.execute("SELECT id FROM jobs WHERE id = ?", (job["id"],)).fetchone()
             if existing is None:
                 connection.execute(
                     """
@@ -258,6 +409,7 @@ def store_search(jobs: list[dict]) -> None:
                     """,
                     _job_values(job, now),
                 )
+                added += 1
             else:
                 connection.execute(
                     """
@@ -285,6 +437,14 @@ def store_search(jobs: list[dict]) -> None:
                         job["id"],
                     ),
                 )
+    return added
+
+
+def job_ids() -> set[str]:
+    init()
+    with _LOCK, _connect() as connection:
+        rows = connection.execute("SELECT id FROM jobs").fetchall()
+    return {row["id"] for row in rows}
 
 
 def upsert_imported(jobs: list[dict]) -> None:

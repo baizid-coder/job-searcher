@@ -40,7 +40,13 @@
       color: white;
       cursor: pointer;
     }
-    button.secondary { background: transparent; color: var(--ink); border: 1px solid var(--line); }
+    button.secondary, a.nav-link { background: transparent; color: var(--ink); border: 1px solid var(--line); }
+    a.nav-link {
+      display: inline-block;
+      border-radius: 999px;
+      padding: 10px 16px;
+      text-decoration: none;
+    }
     button.danger { background: var(--clay); }
     button:disabled { opacity: 0.6; cursor: wait; }
     textarea, input, select {
@@ -58,6 +64,7 @@
       background: transparent;
     }
     textarea { min-height: 88px; resize: vertical; }
+    textarea.short { min-height: 64px; }
     label { display: grid; gap: 6px; font-size: 14px; color: var(--muted); }
     .top, .review-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
     .card {
@@ -113,6 +120,8 @@
     dialog { border: 0; border-radius: 18px; padding: 20px; width: min(480px, calc(100% - 24px)); }
     dialog::backdrop { background: rgba(30, 26, 22, 0.4); }
     #results { margin: 22px 0 48px; }
+    .feed-toggle { margin-top: 8px; color: var(--ink); font-size: 15px; }
+    .feed-toggle input { width: auto; margin: 0; }
     @media (max-width: 800px) {
       .top, .review-grid { grid-template-columns: 1fr; }
       h1 { font-size: 32px; }
@@ -125,14 +134,18 @@
       <p class="eyebrow">Bangladesh and remote</p>
       <h1>Job finder</h1>
     </div>
-    <button id="settings-open" class="secondary" type="button">Settings</button>
+    <div class="row">
+      <a class="nav-link" href="/masters">Master's applications</a>
+      <button id="settings-open" class="secondary" type="button">Settings</button>
+    </div>
   </header>
   <div id="banner" hidden></div>
   <main id="home">
     <div class="top">
       <section class="card">
         <h2>Tell it what you want</h2>
-        <p class="hint">Talk the way you would to a person. The form on the right updates from the conversation.</p>
+        <p class="hint">Talk the way you would to a person. The reply names the role it understood, and Looking for on the right is what search keeps.</p>
+        <p id="model-note" class="hint" hidden></p>
         <div id="messages"></div>
         <form id="chat-form" class="fields">
           <textarea id="chat-input" placeholder="I want junior Python work in Dhaka, and remote roles are fine. I know Django and Excel."></textarea>
@@ -145,6 +158,8 @@
       <section class="card">
         <h2>Requirements</h2>
         <form id="profile-form" class="fields">
+          <label>Looking for <textarea id="seeking" class="short" placeholder="Filled from the conversation, one role per line. Example: junior Python"></textarea></label>
+          <p id="understood" class="hint" hidden></p>
           <label>Resume
             <textarea id="resume" placeholder="Paste your resume. Search uses it, so you do not have to type a job title."></textarea>
           </label>
@@ -155,7 +170,7 @@
           </div>
           <p class="hint">Read PDF fills the same fields. If the file is only a scanned image, paste the text instead.</p>
           <p id="from-resume" class="hint" hidden></p>
-          <p class="hint">Search uses skills from the resume, so jobs in other fields can show up. Leave the title blank unless you want to boost one. Open a lead to check the resume edited for that job.</p>
+          <p class="hint">Looking for is the role from the conversation. Search then keeps jobs of that kind, and skills decide the order. Leave it blank and search uses the resume, with other open listings shown below the closer matches. Open a lead to check the resume edited for that job.</p>
           <label>Name <input id="name" autocomplete="name"></label>
           <label>Contact <input id="contact" placeholder="email or phone"></label>
           <label>Job titles, optional <textarea id="titles" placeholder="Leave blank to search from the resume. Add a title only to boost that role."></textarea></label>
@@ -194,6 +209,11 @@
         <h2>Leads</h2>
         <p id="match-count" class="meta"></p>
       </div>
+      <label class="row feed-toggle">
+        <input id="auto-refresh" type="checkbox" checked>
+        <span>Refresh job feeds every <span id="feed-hours">8</span> hours</span>
+      </label>
+      <p id="feed-status" class="hint"></p>
       <div id="warnings"></div>
       <div id="leads"></div>
       <h2 style="margin-top: 28px;">Applied</h2>
@@ -213,6 +233,7 @@
     <h2 id="review-title"></h2>
     <p id="review-meta" class="meta"></p>
     <p id="review-reasons"></p>
+    <p id="cv-model-note" class="hint" hidden></p>
     <div class="fields" style="margin-top: 8px;">
       <label>Edited resume <textarea id="cv"></textarea></label>
       <label>Cover note <textarea id="note"></textarea></label>
@@ -236,10 +257,19 @@
   <dialog id="settings">
     <form id="settings-form" class="fields">
       <h2>Model</h2>
-      <p class="hint">Ollama: base URL http://127.0.0.1:11434/v1 and the model you pulled. A hosted model also needs an API key. It stays on this PC.</p>
-      <label>Base URL <input id="base-url" placeholder="http://127.0.0.1:11434/v1"></label>
-      <label>Model <input id="model" placeholder="llama3.2"></label>
-      <label>API key <input id="api-key" type="password" autocomplete="off"></label>
+      <label>
+        Choose a model
+        <select id="model-picker">
+          <option value="">Loading...</option>
+        </select>
+      </label>
+      <p id="preset-note" class="hint" hidden></p>
+      <div id="advanced-settings" hidden>
+        <p class="hint">Custom endpoint: enter base URL and model name below.</p>
+        <label>Base URL <input id="base-url" placeholder="http://127.0.0.1:11434/v1"></label>
+        <label>Model <input id="model" placeholder="llama3.2"></label>
+      </div>
+      <label>API key <input id="api-key" type="password" autocomplete="off" placeholder="Paste your API key here"></label>
       <label class="row"><input id="clear-key" type="checkbox" style="width: auto;"> Clear the saved key</label>
       <p id="key-hint" class="hint"></p>
       <div class="row">
@@ -285,9 +315,24 @@
       return typeof detail === "string" ? detail : "Something went wrong.";
     }
 
+    function applyModelState(settings, fallback) {
+      const configured = Boolean(settings && settings.configured);
+      const note = configured ? "" : ((settings && settings.model_note) || fallback || "");
+      setLine("model-note", note);
+      setLine("cv-model-note", note);
+      return configured;
+    }
+
     async function testSavedModel() {
       setModelStatus("Checking connection… " + MODEL_WAIT, "pending");
       const result = await api("/api/settings/test", { method: "POST" });
+      if (!result.ok) {
+        const message = result.reply || "Chat and a model-written CV need a model, and none is configured in this environment.";
+        applyModelState({ configured: false, model_note: message });
+        setModelStatus(message);
+        return;
+      }
+      applyModelState({ configured: true });
       const reply = (result.reply || "").trim();
       const message = reply ? "Connected. Model replied: " + reply : "Connected. The model replied.";
       setModelStatus(message, "ok");
@@ -332,13 +377,28 @@
 
     let savedResume = "";
 
+    function showUnderstood(profile) {
+      const line = $("understood");
+      const seeking = profile.seeking || [];
+      if (!seeking.length) {
+        line.hidden = true;
+        line.textContent = "";
+        return;
+      }
+      const where = profile.work_mode === "remote" ? "remote only" : "remote and on-site in Bangladesh";
+      const city = (profile.city || "").trim();
+      const place = city ? city + ", " + where : where;
+      line.hidden = false;
+      line.textContent = "Search will keep " + seeking.join(", ") + " roles (" + place + "). Skills rank those jobs.";
+    }
+
     function showInferred(profile) {
       const line = $("from-resume");
       const name = (profile.name || "").trim();
       const skills = profile.must_have || [];
       const titles = profile.titles || [];
       const hasResume = Boolean((profile.resume_text || "").trim());
-      if (!hasResume && !name && !skills.length && !titles.length) {
+      if (!hasResume) {
         line.hidden = true;
         line.textContent = "";
         return;
@@ -364,6 +424,7 @@
       $("name").value = profile.name || "";
       $("contact").value = profile.contact || "";
       $("titles").value = (profile.titles || []).join("\n");
+      $("seeking").value = (profile.seeking || []).join("\n");
       $("must").value = (profile.must_have || []).join("\n");
       $("nice").value = (profile.nice_have || []).join("\n");
       $("city").value = profile.city || "Dhaka";
@@ -372,6 +433,7 @@
       $("exclude").value = (profile.exclude || []).join("\n");
       savedResume = profile.resume_text || "";
       showInferred(profile);
+      showUnderstood(profile);
     }
 
     async function useResumeText() {
@@ -386,6 +448,7 @@
         name: $("name").value,
         contact: $("contact").value,
         titles: lines($("titles").value),
+        seeking: lines($("seeking").value),
         must_have: lines($("must").value),
         nice_have: lines($("nice").value),
         city: $("city").value,
@@ -453,22 +516,86 @@
       for (const job of jobs) element.append(renderJob(job, openJob));
     }
 
+    function formatWhen(iso) {
+      if (!iso) return "";
+      const date = new Date(iso);
+      if (Number.isNaN(date.getTime())) return "";
+      return date.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
+    }
+
+    function showFeedStatus(feeds) {
+      if (!feeds) return;
+      const hours = feeds.interval_hours || 8;
+      $("feed-hours").textContent = String(hours);
+      $("auto-refresh").checked = Boolean(feeds.auto_refresh);
+      const line = $("feed-status");
+      if (!feeds.auto_refresh) {
+        line.textContent = "Off. Job feeds will not refresh on their own. Leads already here stay, and Search still adds jobs.";
+        return;
+      }
+      const last = formatWhen(feeds.last_refresh_at);
+      const next = formatWhen(feeds.next_refresh_at);
+      if (!last) {
+        line.textContent = "On. The next refresh runs soon while this app is open. New listings are added, and leads already here stay.";
+        return;
+      }
+      const added = feeds.last_added;
+      let addedText = "";
+      if (added === 0) addedText = " No new listings.";
+      else if (added === 1) addedText = " 1 new listing.";
+      else if (typeof added === "number") addedText = " " + added + " new listings.";
+      let text = "On. Last refresh " + last + "." + addedText;
+      if (next) text += " Next around " + next + ".";
+      text += " Leads already here stay.";
+      line.textContent = text;
+    }
+
+    let boardSig = "";
+
+    function boardSignature(data) {
+      const parts = [];
+      for (const key of ["leads", "applied", "skipped"]) {
+        for (const job of data[key] || []) parts.push([job.id, job.status, job.score].join(":"));
+      }
+      const feeds = data.feeds || {};
+      parts.push(String(Boolean(feeds.auto_refresh)), feeds.last_refresh_at || "", String(feeds.last_added));
+      return parts.join("|");
+    }
+
     function renderBoard(data) {
       renderList($("leads"), data.leads || [], "No leads yet. Paste a resume and search.");
       renderList($("applied"), data.applied || [], "Jobs you mark Apply show up here.");
       renderList($("skipped"), data.skipped || [], "No skipped leads.");
       $("show-skipped").textContent = "Show skipped (" + (data.skipped_count || 0) + ")";
       if (typeof data.matched === "number") {
-        $("match-count").textContent = data.matched + " matched this search";
+        const seeking = (data.profile && data.profile.seeking) || [];
+        let text = seeking.length
+          ? data.matched + " matched " + seeking.join(", ")
+          : data.matched + " matched this search";
+        if (typeof data.added === "number") {
+          text += data.added === 1 ? " · 1 new" : " · " + data.added + " new";
+        }
+        $("match-count").textContent = text;
       }
-      const warnings = $("warnings");
-      warnings.replaceChildren();
-      for (const warning of data.warnings || []) {
-        const item = document.createElement("p");
-        item.className = "hint";
-        item.textContent = warning;
-        warnings.append(item);
+      if (Array.isArray(data.warnings)) {
+        const warnings = $("warnings");
+        warnings.replaceChildren();
+        for (const warning of data.warnings) {
+          const item = document.createElement("p");
+          item.className = "hint";
+          item.textContent = warning;
+          warnings.append(item);
+        }
       }
+      if (data.feeds) showFeedStatus(data.feeds);
+      boardSig = boardSignature(data);
+    }
+
+    async function pullLatest() {
+      if ($("auto-refresh").disabled) return;
+      const data = await api("/api/state");
+      if (boardSignature(data) === boardSig) return;
+      renderBoard(data);
     }
 
     function showHome() {
@@ -545,6 +672,7 @@
       $("base-url").value = data.settings.base_url || "";
       $("model").value = data.settings.model || "";
       $("key-hint").textContent = data.settings.has_key ? "A key is saved (" + data.settings.key_hint + ")." : "No key saved.";
+      applyModelState(data.settings);
     }
 
     $("chat-form").addEventListener("submit", async (event) => {
@@ -557,10 +685,16 @@
       setLine("chat-status", MODEL_WAIT);
       try {
         const data = await api("/api/chat", { method: "POST", body: JSON.stringify({ message }) });
+        if (data.configured === false) {
+          applyModelState({ configured: false, model_note: data.reply });
+          setLine("chat-status", "");
+          return;
+        }
         $("chat-input").value = "";
         fillForm(data.profile);
         renderMessages(data.messages);
-        setLine("chat-status", "");
+        const seeking = (data.profile.seeking || []).join(", ");
+        setLine("chat-status", seeking ? "Understood. Search will use: " + seeking + "." : "");
       } catch (error) {
         showModelFailure(error, "chat-status");
       } finally {
@@ -586,15 +720,22 @@
     $("resume").addEventListener("blur", () => {
       useResumeText().catch(showError);
     });
-    for (const id of ["name", "titles", "must", "nice"]) {
-      $(id).addEventListener("input", () => {
+    for (const id of ["name", "titles", "must", "nice", "seeking", "city", "work-mode"]) {
+      const refreshUnderstood = () => {
         showInferred({
           resume_text: $("resume").value,
           name: $("name").value,
           must_have: lines($("must").value),
           titles: lines($("titles").value),
         });
-      });
+        showUnderstood({
+          seeking: lines($("seeking").value),
+          city: $("city").value,
+          work_mode: $("work-mode").value,
+        });
+      };
+      $(id).addEventListener("input", refreshUnderstood);
+      $(id).addEventListener("change", refreshUnderstood);
     }
 
     $("read-pdf").addEventListener("click", async () => {
@@ -674,6 +815,24 @@
       }
     });
 
+    $("auto-refresh").addEventListener("change", async () => {
+      const box = $("auto-refresh");
+      const wanted = box.checked;
+      box.disabled = true;
+      try {
+        showFeedStatus(await api("/api/feeds", {
+          method: "PUT",
+          body: JSON.stringify({ auto_refresh: wanted }),
+        }));
+        boardSig = "";
+      } catch (error) {
+        box.checked = !wanted;
+        showError(error);
+      } finally {
+        box.disabled = false;
+      }
+    });
+
     $("show-skipped").addEventListener("click", () => {
       $("skipped").hidden = !$("skipped").hidden;
     });
@@ -696,22 +855,126 @@
       }
     });
 
-    $("settings-open").addEventListener("click", () => $("settings").showModal());
+    let allPresets = [];
+    
+    async function loadPresets() {
+      try {
+        const data = await api("/api/presets");
+        allPresets = data.presets || [];
+        populateModelPicker(allPresets);
+      } catch (error) {
+        console.error("Failed to load presets:", error);
+      }
+    }
+    
+    function populateModelPicker(presets) {
+      const picker = $("model-picker");
+      picker.innerHTML = "";
+      
+      // Group by provider
+      const groups = {};
+      presets.forEach(p => {
+        if (!groups[p.provider_name]) groups[p.provider_name] = [];
+        groups[p.provider_name].push(p);
+      });
+      
+      // Add preset options
+      for (const [providerName, models] of Object.entries(groups)) {
+        const optgroup = document.createElement("optgroup");
+        optgroup.label = providerName;
+        models.forEach(preset => {
+          const option = document.createElement("option");
+          option.value = JSON.stringify({provider_id: preset.provider_id, model_id: preset.model_id});
+          option.textContent = preset.model_name + (preset.free ? " (Free)" : "");
+          optgroup.appendChild(option);
+        });
+        picker.appendChild(optgroup);
+      }
+      
+      // Add advanced/custom option
+      const advOption = document.createElement("option");
+      advOption.value = "advanced";
+      advOption.textContent = "Advanced / Custom (Ollama, etc.)";
+      picker.appendChild(advOption);
+    }
+    
+    function showPresetSettings(settings) {
+      const picker = $("model-picker");
+      const advancedDiv = $("advanced-settings");
+      const presetNote = $("preset-note");
+      
+      if (settings.use_preset && settings.preset_provider) {
+        // Select the preset
+        const value = JSON.stringify({provider_id: settings.preset_provider, model_id: settings.preset_model});
+        picker.value = value;
+        advancedDiv.hidden = true;
+        presetNote.hidden = false;
+        presetNote.textContent = "Preset fills base URL and model automatically. Paste your " + settings.preset_provider.toUpperCase() + " API key above.";
+      } else {
+        // Advanced mode
+        picker.value = "advanced";
+        advancedDiv.hidden = false;
+        presetNote.hidden = true;
+        
+        $("base-url").value = settings.base_url || "";
+        $("model").value = settings.model || "";
+      }
+      
+      $("key-hint").textContent = settings.has_key ? "A key is saved (" + settings.key_hint + ")." : "No key saved.";
+    }
+    
+    $("model-picker").addEventListener("change", () => {
+      const picker = $("model-picker");
+      const advancedDiv = $("advanced-settings");
+      const presetNote = $("preset-note");
+      
+      if (picker.value === "advanced") {
+        advancedDiv.hidden = false;
+        presetNote.hidden = true;
+      } else {
+        advancedDiv.hidden = true;
+        presetNote.hidden = false;
+        const preset = JSON.parse(picker.value);
+        presetNote.textContent = "Preset fills base URL and model automatically. Paste your " + preset.provider_id.toUpperCase() + " API key above.";
+      }
+    });
+
+    $("settings-open").addEventListener("click", async () => {
+      await loadPresets();
+      const data = await api("/api/state");
+      showPresetSettings(data.settings);
+      $("settings").showModal();
+    });
     $("settings-close").addEventListener("click", () => $("settings").close());
     $("settings-form").addEventListener("submit", async (event) => {
       event.preventDefault();
       clearError();
-      const payload = {
-        base_url: $("base-url").value,
-        model: $("model").value,
-        clear_key: $("clear-key").checked,
-      };
-      if ($("api-key").value) payload.api_key = $("api-key").value;
+      
+      const picker = $("model-picker");
       const saveButton = event.submitter || event.target.querySelector("button[type=submit]");
       saveButton.disabled = true;
       $("test-model").disabled = true;
+      
       try {
-        const settings = await api("/api/settings", { method: "PUT", body: JSON.stringify(payload) });
+        let settings;
+        const payload = {
+          clear_key: $("clear-key").checked,
+        };
+        if ($("api-key").value) payload.api_key = $("api-key").value;
+        
+        if (picker.value === "advanced") {
+          // Save advanced settings
+          payload.base_url = $("base-url").value;
+          payload.model = $("model").value;
+          settings = await api("/api/settings", { method: "PUT", body: JSON.stringify(payload) });
+        } else {
+          // Save preset with API key
+          const preset = JSON.parse(picker.value);
+          payload.provider_id = preset.provider_id;
+          payload.model_id = preset.model_id;
+          settings = await api("/api/settings/preset", { method: "PUT", body: JSON.stringify(payload) });
+        }
+        
         $("api-key").value = "";
         $("clear-key").checked = false;
         $("key-hint").textContent = settings.has_key ? "A key is saved (" + settings.key_hint + ")." : "No key saved.";
@@ -740,7 +1003,15 @@
       }
     });
 
-    load().catch(showError);
+    load().then(() => {
+      setInterval(() => {
+        if (document.hidden) return;
+        pullLatest().catch(() => {});
+      }, 60000);
+      document.addEventListener("visibilitychange", () => {
+        if (!document.hidden) pullLatest().catch(() => {});
+      });
+    }).catch(showError);
   </script>
 </body>
 </html>
