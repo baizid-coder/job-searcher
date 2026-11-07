@@ -21,6 +21,9 @@ class PresetResolutionTests(unittest.TestCase):
         
         openrouter_presets = [p for p in presets if p["provider_id"] == "openrouter"]
         self.assertTrue(len(openrouter_presets) > 0, "Should have OpenRouter presets")
+        
+        gemini_presets = [p for p in presets if p["provider_id"] == "gemini"]
+        self.assertTrue(len(gemini_presets) > 0, "Should have Gemini presets")
     
     def test_get_default_preset_returns_groq(self):
         default = model_presets.get_default_preset()

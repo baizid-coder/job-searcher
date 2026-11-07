@@ -4,7 +4,7 @@ import os
 from typing import Any
 
 # Provider configurations with their endpoints and available models
-# Keys can be supplied via environment variables (GROQ_API_KEY, OPENROUTER_API_KEY)
+# Keys can be supplied via environment variables (GROQ_API_KEY, OPENROUTER_API_KEY, GEMINI_API_KEY)
 # or entered in Settings UI and saved to local database
 PROVIDERS = {
     "groq": {
@@ -29,6 +29,16 @@ PROVIDERS = {
             {"id": "google/gemini-2.0-flash-exp:free", "name": "Gemini 2.0 Flash (Free)", "free": True},
             {"id": "google/gemini-flash-1.5", "name": "Gemini 1.5 Flash", "free": True},
             {"id": "meta-llama/llama-3.2-3b-instruct:free", "name": "Llama 3.2 3B (Free)", "free": True},
+        ],
+    },
+    "gemini": {
+        "name": "Google Gemini (Direct)",
+        "base_url": "https://generativelanguage.googleapis.com/v1beta/openai",
+        "env_key": "GEMINI_API_KEY",
+        "models": [
+            {"id": "gemini-2.0-flash-exp", "name": "Gemini 2.0 Flash Experimental", "free": True},
+            {"id": "gemini-1.5-flash", "name": "Gemini 1.5 Flash", "free": True},
+            {"id": "gemini-1.5-flash-8b", "name": "Gemini 1.5 Flash 8B", "free": True},
         ],
     },
 }
